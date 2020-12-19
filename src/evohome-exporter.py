@@ -3,11 +3,16 @@
 import sys
 import time
 import datetime as dt
+from typing import KeysView
 from evohomeclient2 import EvohomeClient
 import prometheus_client as prom
 from os import environ
 
-poll_interval = 60
+username_env_var = "EVOHOME_USERNAME"
+password_env_var = "EVOHOME_PASSWORD"
+poll_interval_env_var = "EVOHOME_POLL_INTERVAL"
+
+scrape_port = 8082
 
 
 class hashabledict(dict):
@@ -70,6 +75,20 @@ def get_schedules():
 
 
 if __name__ == "__main__":
+    print("Evohome exporter for Prometheus")
+    try:
+        username = environ[username_env_var]
+        password = environ[password_env_var]
+    except KeyError:
+        print("Missing environment variables for Evohome credentials:", file=sys.stderr)
+        print(f"\t{username_env_var} - Evohome username", file=sys.stderr)
+        print(f"\t{password_env_var} - Evohome password", file=sys.stderr)
+        exit(1)
+    else:
+        print(f"Evohome credentials read from environment variables ({username})")
+
+    poll_interval = int(environ.get(poll_interval_env_var, 300))
+
     eht = prom.Gauge(
         "evohome_temperature_celcius",
         "Evohome temperatuur in celsius",
@@ -117,7 +136,8 @@ if __name__ == "__main__":
     )
     upd = prom.Gauge("evohome_updated", "Evohome client last updated")
     up = prom.Gauge("evohome_up", "Evohome client status")
-    prom.start_http_server(8082)
+    prom.start_http_server(scrape_port)
+
     try:
         username = environ["USERNAME"]
         password = environ["PASSWORD"]
@@ -136,6 +156,9 @@ if __name__ == "__main__":
             file=sys.stderr,
         )
         sys.exit(1)
+
+    print("Logged into Evohome API")
+
     loggedin = True
     lastupdated = 0
     tcsalerts = set()
