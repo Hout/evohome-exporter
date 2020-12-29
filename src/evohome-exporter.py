@@ -1,5 +1,3 @@
-#!/usr/bin/python3 -u
-
 import sys
 import time
 import datetime as dt
@@ -7,6 +5,10 @@ from typing import KeysView
 from evohomeclient2 import EvohomeClient
 import prometheus_client as prom
 from os import environ
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 username_env_var = "EVOHOME_USERNAME"
 password_env_var = "EVOHOME_PASSWORD"
@@ -23,7 +25,7 @@ def loginEvohome(myclient):
     try:
         myclient._login()
     except Exception as e:
-        print("{}: {}".format(type(e).__name__, str(e)), file=sys.stderr)
+        logger.error(f"{type(e).__name__}: {e}")
         return False
     return True
 
@@ -57,7 +59,7 @@ schedules_updated = dt.datetime.min
 schedules = {}
 
 
-def get_schedules():
+def get_schedules(client):
     global schedules_updated
     global schedules
 
@@ -73,18 +75,18 @@ def get_schedules():
         schedules_updated = dt.datetime.now()
 
 
-if __name__ == "__main__":
-    print("Evohome exporter for Prometheus")
+def main():
+    logger.info("Evohome exporter for Prometheus")
     try:
         username = environ[username_env_var]
         password = environ[password_env_var]
     except KeyError:
-        print("Missing environment variables for Evohome credentials:", file=sys.stderr)
-        print(f"\t{username_env_var} - Evohome username", file=sys.stderr)
-        print(f"\t{password_env_var} - Evohome password", file=sys.stderr)
+        logger.error("Missing environment variables for Evohome credentials:")
+        logger.error(f"\t{username_env_var} - Evohome username")
+        logger.error(f"\t{password_env_var} - Evohome password")
         exit(1)
     else:
-        print(f"Evohome credentials read from environment variables ({username})")
+        logger.info(f"Evohome credentials read from environment variables ({username})")
 
     poll_interval = int(environ.get(poll_interval_env_var, 300))
     scrape_port = int(environ.get(scrape_port_env_var, 8082))
@@ -141,15 +143,10 @@ if __name__ == "__main__":
     try:
         client = EvohomeClient(username, password)
     except Exception as e:
-        print(
-            "ERROR: can't create EvohomeClient\n{}: {}".format(
-                type(e).__name__, str(e)
-            ),
-            file=sys.stderr,
-        )
+        logger.error(f"ERROR: can't create EvohomeClient\n{type(e).__name__}: {e}")
         sys.exit(1)
 
-    print("Logged into Evohome API")
+    logger.info("Logged into Evohome API")
 
     loggedin = True
     lastupdated = 0
@@ -164,7 +161,7 @@ if __name__ == "__main__":
         newids = set()
         try:
             temps = list(client.temperatures())
-            get_schedules()
+            get_schedules(client)
             loggedin = True
             updated = True
             lastupdated = time.time()
@@ -191,10 +188,7 @@ if __name__ == "__main__":
                     afhd = hashabledict(af)
                     if afhd not in tcsalerts:
                         tcsalerts.add(afhd)
-                        print(
-                            "fault in temperatureControlSystem: {}".format(af),
-                            file=sys.stderr,
-                        )
+                        logger.warn(f"fault in temperatureControlSystem: {af}")
             else:
                 tcsfault.labels(client.system_id).set(0)
                 tcsalerts = set()
@@ -254,3 +248,7 @@ if __name__ == "__main__":
         oldids = newids
 
         time.sleep(poll_interval)
+
+
+if __name__ == "__main__":
+    main()
