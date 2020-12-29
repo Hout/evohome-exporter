@@ -4,8 +4,8 @@ import sys
 import time
 import datetime as dt
 from evohomeclient2 import EvohomeClient
-from keys import username, password
 import prometheus_client as prom
+from os import environ
 
 poll_interval = 60
 
@@ -119,7 +119,15 @@ if __name__ == "__main__":
     up = prom.Gauge("evohome_up", "Evohome client status")
     prom.start_http_server(8082)
     try:
-        client = EvohomeClient(username, password)
+        username = environ["USERNAME"]
+        password = environ["PASSWORD"]
+        client = EvohomeClient(username, password, debug=True)
+    except KeyError as e:
+        print(
+            "ERROR: Evohome credentials should be stored in environment variables USERNAME and PASSWORD",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     except Exception as e:
         print(
             "ERROR: can't create EvohomeClient\n{}: {}".format(
