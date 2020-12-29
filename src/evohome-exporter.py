@@ -139,15 +139,7 @@ if __name__ == "__main__":
     prom.start_http_server(scrape_port)
 
     try:
-        username = environ["USERNAME"]
-        password = environ["PASSWORD"]
-        client = EvohomeClient(username, password, debug=True)
-    except KeyError as e:
-        print(
-            "ERROR: Evohome credentials should be stored in environment variables USERNAME and PASSWORD",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        client = EvohomeClient(username, password)
     except Exception as e:
         print(
             "ERROR: can't create EvohomeClient\n{}: {}".format(
