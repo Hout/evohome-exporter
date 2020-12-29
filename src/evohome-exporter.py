@@ -11,8 +11,7 @@ from os import environ
 username_env_var = "EVOHOME_USERNAME"
 password_env_var = "EVOHOME_PASSWORD"
 poll_interval_env_var = "EVOHOME_POLL_INTERVAL"
-
-scrape_port = 8082
+scrape_port_env_var = "EVOHOME_SCRAPE_PORT"
 
 
 class hashabledict(dict):
@@ -88,6 +87,7 @@ if __name__ == "__main__":
         print(f"Evohome credentials read from environment variables ({username})")
 
     poll_interval = int(environ.get(poll_interval_env_var, 300))
+    scrape_port = int(environ.get(scrape_port_env_var, 8082))
 
     eht = prom.Gauge(
         "evohome_temperature_celcius",
