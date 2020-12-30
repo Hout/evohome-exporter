@@ -1,11 +1,12 @@
+import datetime as dt
+import logging
 import sys
 import time
-import datetime as dt
-from typing import KeysView
-from evohomeclient2 import EvohomeClient
-import prometheus_client as prom
 from os import environ
-import logging
+from typing import KeysView
+
+import prometheus_client as prom
+from evohomeclient2 import EvohomeClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
