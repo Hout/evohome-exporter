@@ -65,13 +65,10 @@ def get_schedules(client):
 
     # this takes time, update once per hour
     if schedules_updated < dt.datetime.now() - dt.timedelta(hours=1):
-        for zone in client._get_single_heating_system()._zones:
-            schedules[zone.zoneId] = zone.schedule()
-
-        # schedules = {
-        #     zone.zone_id: zone.schedule()
-        #     for zone in client._get_single_heating_system()._zones
-        # }
+        schedules = {
+            zone.zoneId: zone.schedule()
+            for zone in client._get_single_heating_system()._zones
+        }
         schedules_updated = dt.datetime.now()
 
 
