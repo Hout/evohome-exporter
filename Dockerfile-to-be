@@ -1,7 +1,5 @@
 # set base image (host OS)
-FROM python:3
-
-RUN apt install git
+FROM python:3-slim
 
 # set the run user & set working dir to its home dir
 RUN useradd --create-home pythonuser
