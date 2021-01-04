@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evohome-exporter
+  namespace: evohome-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evohome-exporter
+  template:
+    metadata:
+      labels:
+        app: evohome-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+    spec:
+      containers:
+        - name: evohome-exporter
+          image: localhost:32000/evohome-exporter:registry
+          imagePullPolicy: "Always"
+          ports:
+            - name: metrics
+              containerPort: 8082
+          envFrom:
+            - secretRef:
+                name: evohome-credentials
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10

@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: evohome-exporter-servicemonitor
+  namespace: evohome-exporter
+  labels:
+    app: evohome-exporter
+spec:
+  jobLabel: evohome-exporter
+  selector:
+    matchLabels:
+      app: evohome-exporter
+  endpoints:
+    - port: metrics
+      interval: 60s

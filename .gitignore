@@ -105,3 +105,6 @@ Pipfile*
 
 # output
 *.out
+k8s-evohome-secret.yaml
+k8s-prom.yaml
+k8s-evohome-exporter-secret.yaml
