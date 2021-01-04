@@ -1,7 +1,6 @@
 import sys
 import time
 import datetime as dt
-from typing import KeysView
 from evohomeclient2 import EvohomeClient
 import prometheus_client as prom
 from os import environ

@@ -1,14 +1,14 @@
 # set base image (host OS)
-FROM python:3-slim
+FROM python:3
 
 # set the run user & set working dir to its home dir
 RUN useradd --create-home pythonuser
 USER pythonuser
-WORKDIR /home/pythonuser/code
+WORKDIR /home/pythonuser
 
 # copy the requirements file, install it & clean up
 COPY requirements.txt .
-RUN pip install  --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 RUN rm requirements.txt
 
 # copy the content of the local src directory to the working directory
@@ -18,4 +18,5 @@ COPY src/evohome-exporter.py ./
 EXPOSE 8082
 
 # command to run on container start
-CMD [ "python", "evohome-exporter.py", "--bind", "0.0.0.0"]
+ENTRYPOINT [ "python", "evohome-exporter.py"]
+CMD ["--bind", "0.0.0.0"]
