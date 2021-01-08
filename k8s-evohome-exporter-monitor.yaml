@@ -4,6 +4,7 @@ metadata:
   name: evohome-exporter
   labels:
     app: evohome-exporter
+  namespace: evohome-exporter
 spec:
   selector:
     matchLabels:

@@ -12,6 +12,9 @@ spec:
     metadata:
       labels:
         app: evohome-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
     spec:
       containers:
         - name: evohome-exporter
