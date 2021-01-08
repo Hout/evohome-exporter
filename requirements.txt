@@ -1,2 +1,2 @@
 prometheus-client
--e git+https://github.com/watchforstock/evohome-client.git@refs/pull/118/head#egg=evohomeclient
+evohomeclient
