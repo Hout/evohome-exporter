@@ -19,5 +19,5 @@ RUN export EVOHOME_SCRAPE_PORT=8082
 EXPOSE 8082
 
 # command to run on container start
-ENTRYPOINT [ "python", "evohome-exporter.py"]
+ENTRYPOINT [ "python", "-u", "evohome-exporter.py"]
 CMD ["--bind", "0.0.0.0"]
