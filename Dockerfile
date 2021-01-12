@@ -15,6 +15,7 @@ RUN rm requirements.txt
 COPY src/evohome-exporter.py ./
 
 # Expose the port for Prometheus to scrape from
+RUN export EVOHOME_SCRAPE_PORT=8082
 EXPOSE 8082
 
 # command to run on container start
