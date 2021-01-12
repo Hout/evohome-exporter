@@ -18,8 +18,8 @@ spec:
     spec:
       containers:
         - name: evohome-exporter
-          image: localhost:5000/evohome-exporter:registry
-          imagePullPolicy: "IfNotPresent"
+          image: localhost:32000/evohome-exporter:registry
+          imagePullPolicy: "Always"
           ports:
             - containerPort: 8082
           envFrom:
