@@ -1,13 +1,16 @@
+import datetime as dt
+import logging
 import sys
 import time
-import datetime as dt
-from evohomeclient2 import EvohomeClient
-import prometheus_client as prom
 from os import environ
-import logging
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+import prometheus_client as prom
+from evohomeclient2 import EvohomeClient
+
+logging.root.setLevel(logging.DEBUG)
+logging.root.handlers[0].setFormatter(
+    logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
+)
 
 username_env_var = "EVOHOME_USERNAME"
 password_env_var = "EVOHOME_PASSWORD"
@@ -15,21 +18,7 @@ poll_interval_env_var = "EVOHOME_POLL_INTERVAL"
 scrape_port_env_var = "EVOHOME_SCRAPE_PORT"
 
 
-class hashabledict(dict):
-    def __hash__(self):
-        return hash(tuple(sorted(self.items())))
-
-
-def loginEvohome(myclient):
-    try:
-        myclient._login()
-    except Exception as e:
-        logger.error(f"{type(e).__name__}: {e}")
-        return False
-    return True
-
-
-def _get_set_point(zone_schedule, day_of_week, spot_time):
+def get_set_point(zone_schedule, day_of_week, spot_time):
     daily_schedules = {
         s["DayOfWeek"]: s["Switchpoints"] for s in zone_schedule["DailySchedules"]
     }
@@ -49,9 +38,12 @@ def _get_set_point(zone_schedule, day_of_week, spot_time):
 def calculate_planned_temperature(zone_schedule):
     current_time = dt.datetime.now().time()
     day_of_week = dt.datetime.today().weekday()
-    return _get_set_point(zone_schedule, day_of_week, current_time) or _get_set_point(
-        zone_schedule, day_of_week - 1 if day_of_week > 0 else 6, dt.time.max
-    )
+    setpoint = get_set_point(zone_schedule, day_of_week, current_time)
+    if setpoint is not None:
+        return setpoint
+    yesterday = dt.datetime.today() - dt.timedelta(days=-1)
+    yesterday_weekday = yesterday.weekday()
+    return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
 
 
 schedules_updated = dt.datetime.min
@@ -69,181 +61,218 @@ def get_schedules(client):
             for zone in client._get_single_heating_system()._zones
         }
         schedules_updated = dt.datetime.now()
+    return schedules
+
+
+def initialise_settings():
+    logging.info("Evohome exporter for Prometheus")
+    settings = {}
+    try:
+        settings["username"] = environ[username_env_var].strip()
+        settings["password"] = environ[password_env_var].strip()
+    except KeyError:
+        logging.error("Missing environment variables for Evohome credentials:")
+        logging.error(f"\t{username_env_var} - Evohome username")
+        logging.error(f"\t{password_env_var} - Evohome password")
+        exit(1)
+
+    settings["poll_interval"] = int(environ.get(poll_interval_env_var, 60))
+    settings["scrape_port"] = int(environ.get(scrape_port_env_var, 8082))
+
+    logging.info("Evohome exporter settings:")
+    logging.info(f"Username: {settings['username']}")
+    logging.info(f"Poll interval: {settings['poll_interval']} seconds")
+    logging.info(f"Scrape port: {settings['scrape_port']}")
+
+    return settings
+
+
+def initialise_evohome(settings):
+    while True:
+        try:
+            return EvohomeClient(settings["username"], settings["password"])
+        except Exception as e:
+            if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
+                logging.warning(f": {e}")
+                time.sleep(30)
+                continue
+
+            logging.critical(f"Can't create Evohome client: {e}")
+            sys.exit(99)
+
+
+def initialise_metrics(settings):
+    metrics_list = [
+        prom.Gauge(name="evohome_up", documentation="Evohome status"),
+        prom.Gauge(
+            name="evohome_tcs_active_faults", documentation="Evohome active faults"
+        ),
+        prom.Gauge(
+            name="evohome_tcs_permanent", documentation="Evohome permanent state"
+        ),
+        prom.Enum(
+            name="evohome_tcs_mode",
+            documentation="Evohome temperatureControlSystem mode",
+            states=[
+                "Auto",
+                "AutoWithEco",
+                "AutoWithReset",
+                "Away",
+                "DayOff",
+                "HeatingOff",
+                "Custom",
+            ],
+        ),
+        prom.Gauge(
+            name="evohome_zone_up",
+            documentation="Evohome zone status",
+            labelnames=["zone_id", "zone_name"],
+        ),
+        prom.Enum(
+            name="evohome_zone_mode",
+            documentation="Evohome zone mode",
+            states=["FollowSchedule", "TemporaryOverride", "PermanentOverride"],
+            labelnames=["zone_id", "zone_name"],
+        ),
+        prom.Gauge(
+            name="evohome_temperature",
+            documentation="Evohome temperature",
+            unit="celcius",
+            labelnames=["zone_id", "zone_name", "type"],
+        ),
+        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
+    ]
+
+    prom.start_http_server(settings["scrape_port"])
+
+    return {m._name.removeprefix("evohome_"): m for m in metrics_list}
+
+
+# Create a metric to track time spent and requests made.
+REQUEST_TIME = prom.Summary(
+    "evohome_request_processing", "Time spent processing request"
+)
+
+
+# Decorate function with metric.
+@REQUEST_TIME.time()
+def get_evohome_data(client):
+    tcs = client._get_single_heating_system()
+    tcs.location.status()
+    data = {"tcs": tcs, "schedules": get_schedules(client)}
+    logging.debug("Retrieved data:")
+    logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
+    logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
+    logging.debug(f"System model type: {tcs.modelType}")
+    return data
+
+
+def clear_metric(metric, label_values):
+    if label_values in metric._metrics:
+        metric.remove(label_values)
+
+
+def set_prom_metrics(metrics, data):
+    metrics["up"].set(1)
+
+    system_mode_status = data["tcs"].systemModeStatus
+    system_mode_permanent_flag = system_mode_status.get("isPermanent", False)
+    metrics["tcs_permanent"].set(float(system_mode_permanent_flag))
+    logging.debug(f"System mode permanent: {system_mode_permanent_flag}")
+
+    system_mode = system_mode_status.get("mode", "Auto")
+    metrics["tcs_mode"].state(system_mode)
+    logging.debug(f"System mode: {system_mode}")
+
+    active_faults = data["tcs"].activeFaults
+    metrics["tcs_active_faults"].set(float(active_faults is not None))
+    for active_fault in active_faults:
+        logging.warning(f"Active fault: {active_fault}")
+
+    for zone in data["tcs"].zones.values():
+
+        zone_temperature_up = zone.temperatureStatus.get("isAvailable", False)
+        metrics["zone_up"].labels(zone_id=zone.zoneId, zone_name=zone.name).set(
+            float(zone_temperature_up)
+        )
+        logging.debug(f"Zone {zone.name} temperature up: {zone_temperature_up}")
+
+        if zone_temperature_up:
+            zone_measured_temperature = zone.temperatureStatus["temperature"]
+            metrics["temperature_celcius"].labels(
+                zone_id=zone.zoneId, zone_name=zone.name, type="measured"
+            ).set(zone_measured_temperature)
+            logging.debug(
+                f"Zone {zone.name} measured temperature: {zone_measured_temperature}"
+            )
+
+            zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
+            metrics["temperature_celcius"].labels(
+                zone_id=zone.zoneId, zone_name=zone.name, type="setpoint"
+            ).set(zone_target_temperature)
+            logging.debug(
+                f"Zone {zone.name} target temperature: {zone_target_temperature}"
+            )
+
+            zone_setpoint_mode = zone.setpointStatus["setpointMode"]
+            metrics["zone_mode"].labels(zone_id=zone.zoneId, zone_name=zone.name).state(
+                zone_setpoint_mode
+            )
+            logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
+            if zone_setpoint_mode == "FollowSchedule":
+                schedule = data["schedules"][zone.zoneId]
+                zone_planned_temperature = calculate_planned_temperature(schedule)
+                metrics["temperature_celcius"].labels(
+                    zone_id=zone.zoneId, zone_name=zone.name, type="planned"
+                ).set(zone_planned_temperature)
+                logging.debug(
+                    f"Zone {zone.name} planned temperature: {zone_planned_temperature}"
+                )
+            else:
+                clear_metric(
+                    metrics["temperature_celcius"], (zone.zoneId, zone.name, "planned")
+                )
+
+        else:
+            for type in ["measured", "setpoint", "planned"]:
+                clear_metric(
+                    metrics["temperature_celcius"], (zone.zoneId, zone.name, type)
+                )
+            clear_metric(metrics["zone_mode"], (zone.zoneId, zone.name))
+
+    metrics["last_update"].set_to_current_time()
+    logging.debug(f"System last update set to {time.time()}")
+
+
+def clear_prom_metrics(metrics):
+    for k, m in metrics.items():
+        if k == "up":
+            m.set(0)
+            continue
+        for label_values in m._metrics:
+            m.remove(label_values)
 
 
 def main():
-    logger.info("Evohome exporter for Prometheus")
-    try:
-        username = environ[username_env_var]
-        password = environ[password_env_var]
-    except KeyError:
-        logger.error("Missing environment variables for Evohome credentials:")
-        logger.error(f"\t{username_env_var} - Evohome username")
-        logger.error(f"\t{password_env_var} - Evohome password")
-        exit(1)
-    else:
-        logger.info(f"Evohome credentials read from environment variables ({username})")
+    settings = initialise_settings()
+    client = initialise_evohome(settings)
+    metrics = initialise_metrics(settings)
 
-    poll_interval = int(environ.get(poll_interval_env_var, 300))
-    scrape_port = int(environ.get(scrape_port_env_var, 8082))
-
-    eht = prom.Gauge(
-        "evohome_temperature_celcius",
-        "Evohome temperatuur in celsius",
-        ["name", "thermostat", "id", "type"],
-    )
-    zavail = prom.Gauge(
-        "evohome_zone_available",
-        "Evohome zone availability",
-        ["name", "thermostat", "id"],
-    )
-    zfault = prom.Gauge(
-        "evohome_zone_fault",
-        "Evohome zone has active fault(s)",
-        ["name", "thermostat", "id"],
-    )
-    zmode = prom.Enum(
-        "evohome_zone_mode",
-        "Evohome zone mode",
-        ["name", "thermostat", "id"],
-        states=["FollowSchedule", "TemporaryOverride", "PermanentOverride"],
-    )
-    tcsperm = prom.Gauge(
-        "evohome_temperaturecontrolsystem_permanent",
-        "Evohome temperatureControlSystem is in permanent state",
-        ["id"],
-    )
-    tcsfault = prom.Gauge(
-        "evohome_temperaturecontrolsystem_fault",
-        "Evohome temperatureControlSystem has active fault(s)",
-        ["id"],
-    )
-    tcsmode = prom.Enum(
-        "evohome_temperaturecontrolsystem_mode",
-        "Evohome temperatureControlSystem mode",
-        ["id"],
-        states=[
-            "Auto",
-            "AutoWithEco",
-            "AutoWithReset",
-            "Away",
-            "DayOff",
-            "HeatingOff",
-            "Custom",
-        ],
-    )
-    upd = prom.Gauge("evohome_updated", "Evohome client last updated")
-    up = prom.Gauge("evohome_up", "Evohome client status")
-    prom.start_http_server(scrape_port)
-
-    try:
-        client = EvohomeClient(username, password)
-    except Exception as e:
-        logger.error(f"ERROR: can't create EvohomeClient\n{type(e).__name__}: {e}")
-        sys.exit(1)
-
-    logger.info("Logged into Evohome API")
-
-    loggedin = True
-    lastupdated = 0
-    tcsalerts = set()
-    zonealerts = dict()
-
-    oldids = set()
-    labels = {}
-    lastup = False
     while True:
-        temps = []
-        newids = set()
+        data = {}
         try:
-            temps = list(client.temperatures())
-            get_schedules(client)
-            loggedin = True
-            updated = True
-            lastupdated = time.time()
+            data = get_evohome_data(client)
         except Exception as e:
-            print("{}: {}".format(type(e).__name__, str(e)), file=sys.stderr)
-            temps = []
-            updated = False
-            loggedin = loginEvohome(client)
-            if loggedin:
-                continue
-
-        if loggedin and updated:
-            up.set(1)
-            upd.set(lastupdated)
-            tcs = client._get_single_heating_system()
-            sysmode = tcs.systemModeStatus
-            tcsperm.labels(client.system_id).set(
-                float(sysmode.get("isPermanent", True))
-            )
-            tcsmode.labels(client.system_id).state(sysmode.get("mode", "Auto"))
-            if tcs.activeFaults:
-                tcsfault.labels(client.system_id).set(1)
-                for af in tcs.activeFaults:
-                    afhd = hashabledict(af)
-                    if afhd not in tcsalerts:
-                        tcsalerts.add(afhd)
-                        logger.warn(f"fault in temperatureControlSystem: {af}")
-            else:
-                tcsfault.labels(client.system_id).set(0)
-                tcsalerts = set()
-            for d in temps:
-                newids.add(d["id"])
-                labels[d["id"]] = [d["name"], d["thermostat"], d["id"]]
-                if d["temp"] is None:
-                    zavail.labels(d["name"], d["thermostat"], d["id"]).set(0)
-                    eht.remove(d["name"], d["thermostat"], d["id"], "measured")
-                else:
-                    zavail.labels(d["name"], d["thermostat"], d["id"]).set(1)
-                    eht.labels(d["name"], d["thermostat"], d["id"], "measured").set(
-                        d["temp"]
-                    )
-                eht.labels(d["name"], d["thermostat"], d["id"], "setpoint").set(
-                    d["setpoint"]
-                )
-                eht.labels(d["name"], d["thermostat"], d["id"], "planned").set(
-                    calculate_planned_temperature(schedules[d["id"]])
-                )
-                zmode.labels(d["name"], d["thermostat"], d["id"]).state(
-                    d.get("setpointmode", "FollowSchedule")
-                )
-                if d["id"] not in zonealerts.keys():
-                    zonealerts[d["id"]] = set()
-                if d.get("activefaults"):
-                    zonefault = 1
-                    for af in d["activefaults"]:
-                        afhd = hashabledict(af)
-                        if afhd not in zonealerts[d["id"]]:
-                            zonealerts[d["id"]].add(afhd)
-                            print(
-                                "fault in zone {}: {}".format(d["name"], af),
-                                file=sys.stderr,
-                            )
-                else:
-                    zonefault = 0
-                    zonealerts[d["id"]] = set()
-                zfault.labels(d["name"], d["thermostat"], d["id"]).set(zonefault)
-            lastup = True
+            logging.warning(f"Error while retrieving evohome data: {e}")
+            if data is None or len(data) == 0 or data.get("tcs", None) is None:
+                clear_prom_metrics(metrics)
         else:
-            up.set(0)
-            if lastup:
-                tcsperm.remove(client.system_id)
-                tcsfault.remove(client.system_id)
-                tcsmode.remove(client.system_id)
-            lastup = False
+            try:
+                set_prom_metrics(metrics, data)
+            except Exception as e:
+                logging.warning(f"Error while setting prometheus metrics: {e}")
 
-        for i in oldids:
-            if i not in newids:
-                eht.remove(*labels[i] + ["measured"])
-                eht.remove(*labels[i] + ["setpoint"])
-                eht.remove(*labels[i] + ["planned"])
-                zavail.remove(*labels[i])
-                zmode.remove(*labels[i])
-                zfault.remove(*labels[i])
-        oldids = newids
-
-        time.sleep(poll_interval)
+        time.sleep(settings["poll_interval"])
 
 
 if __name__ == "__main__":
