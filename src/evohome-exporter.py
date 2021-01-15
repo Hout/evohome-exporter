@@ -167,9 +167,10 @@ def get_evohome_data(client):
     return data
 
 
-def clear_metric(metric, label_values):
+def clear_metric(metric, *label_values):
     if label_values in metric._metrics:
         metric.remove(label_values)
+        logging.debug(f"Clear metric {metric} with label values {label_values}")
 
 
 def set_prom_metrics(metrics, data):
