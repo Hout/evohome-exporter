@@ -46,21 +46,28 @@ def calculate_planned_temperature(zone_schedule):
     return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
 
 
-schedules_updated = dt.datetime.min
-schedules = {}
+schedules = dict()
+schedules_next_update = dict()
 
 
 def get_schedules(client):
-    global schedules_updated
+    global schedules_next_update
     global schedules
 
-    # this takes time, update once per hour
-    if schedules_updated < dt.datetime.now() - dt.timedelta(hours=1):
-        schedules = {
-            zone.zoneId: zone.schedule()
-            for zone in client._get_single_heating_system()._zones
-        }
-        schedules_updated = dt.datetime.now()
+    from random import expovariate
+
+    # this takes time, update at random on average once per hour
+    for zone in client._get_single_heating_system()._zones:
+        if schedules_next_update.get(zone.zoneId, dt.datetime.min) <= dt.datetime.now():
+            schedules[zone.zoneId] = zone.schedule()
+            minutes = expovariate(1 / 60)
+            schedules_next_update[zone.zoneId] = dt.datetime.now() + dt.timedelta(
+                minutes=minutes
+            )
+            logging.debug(
+                f"Schedule update for zone {zone.name}, next in {minutes} minutes"
+            )
+
     return schedules
 
 
