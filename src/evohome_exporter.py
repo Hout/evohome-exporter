@@ -341,13 +341,14 @@ def set_prom_metrics_mode_status(metrics, data):
 def clear_prom_metrics(metrics):
     metrics["up"].set(0)
     logging.debug("System down, set up metric to 0")
-    for k, m in {k: m for k, m in metrics.items() if k != "up"}:
-        # remove all other docker metrics
-        for label_values in m._metrics:
-            m.remove(label_values)
-            logging.debug(
-                f"Cleared metric {m._name} with label values {label_values}"
-            )
+    for k, m in metrics.items():
+        if k != "up":
+            # remove all other docker metrics
+            for label_values in m._metrics:
+                m.remove(label_values)
+                logging.debug(
+                    f"Cleared metric {m._name} with label values {label_values}"
+                )
 
 
 def main():
