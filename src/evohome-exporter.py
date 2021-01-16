@@ -303,11 +303,10 @@ def set_prom_metrics_mode_status(metrics, data):
 
 
 def clear_prom_metrics(metrics):
-    for k, m in metrics.items():
-        if k == "up":
-            m.set(0)
-            logging.debug("System down, set up metric to 0")
-            continue
+    metrics["up"].set(0)
+    logging.debug("System down, set up metric to 0")
+    for k, m in {k: m for k, m in metrics.items() if k != "up"}:
+        # remove all other docker metrics
         for label_values in m._metrics:
             m.remove(label_values)
             logging.debug(f"Cleared metric {m._name} with label values {label_values}")
@@ -322,9 +321,8 @@ def main():
         data = {}
         try:
             data = get_evohome_data(evo_client)
-
         except Exception as e:
-            logging.warning(f"Error while retrieving evohome data: {e}")
+            logging.error(f"Error while retrieving evohome data: {e}")
             if data is None or len(data) == 0 or data.get("tcs", None) is None:
                 clear_prom_metrics(metrics)
             time.sleep(settings["poll_interval"])
@@ -333,7 +331,7 @@ def main():
         try:
             set_prom_metrics(metrics, data)
         except Exception as e:
-            logging.warning(f"Error while setting prometheus metrics: {e}")
+            logging.error(f"Error while setting prometheus metrics: {e}")
 
         time.sleep(settings["poll_interval"])
 
