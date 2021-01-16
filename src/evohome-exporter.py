@@ -134,6 +134,10 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
+        prom.Gauge(
+            name="evohome_request_processing_last",
+            documentation="Evohome last successful request timestamp",
+        ),
     ]
 
     prom.start_http_server(settings["scrape_port"])
@@ -147,12 +151,12 @@ EVOHOME_REQUEST_TIME = prom.Summary(
 )
 
 
-# Decorate function with metric.
-@EVOHOME_REQUEST_TIME.time()
 def get_evohome_data(client):
-    tcs = client._get_single_heating_system()
-    tcs.location.status()
-    data = {"tcs": tcs, "schedules": get_schedules(client)}
+    with EVOHOME_REQUEST_TIME.time():
+        tcs = client._get_single_heating_system()
+        tcs.location.status()
+        data = {"tcs": tcs, "schedules": get_schedules(client)}
+
     logging.debug("Retrieved data:")
     logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
     logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
@@ -193,6 +197,11 @@ def set_prom_metrics(metrics, data):
         set_prom_metrics_zone_target_temperature(
             metrics, data, zone, zone_setpoint_mode
         )
+    set_prom_metrics_last_update(metrics)
+
+
+def set_prom_metrics_last_update(metrics):
+    metrics["request_processing_last"].set(time.time())
 
 
 def set_prom_metrics_zone_up(metrics, zone):
@@ -216,7 +225,7 @@ def set_prom_metrics_zone_up(metrics, zone):
 
 
 def set_prom_metrics_zone_target_temperature(metrics, data, zone, zone_setpoint_mode):
-    zone_target_temperature = zone.setpointStatus["targetHea tTemperature"]
+    zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
     if zone_setpoint_mode == "TemporaryOverride":
         set_metric(
             metrics["temperature_celcius"], zone, zone_target_temperature, "temporary"
