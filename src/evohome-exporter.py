@@ -37,8 +37,8 @@ def get_set_point(zone_schedule, day_of_week, spot_time):
 
 def calculate_planned_temperature(zone_schedule):
     current_time = dt.datetime.now().time()
-    day_of_week = dt.datetime.today().weekday()
-    setpoint = get_set_point(zone_schedule, day_of_week, current_time)
+    current_weekday = dt.datetime.today().weekday()
+    setpoint = get_set_point(zone_schedule, current_weekday, current_time)
     if setpoint is not None:
         return setpoint
     yesterday = dt.datetime.today() - dt.timedelta(days=-1)
@@ -134,7 +134,6 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
-        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
     ]
 
     prom.start_http_server(settings["scrape_port"])
@@ -194,13 +193,6 @@ def set_prom_metrics(metrics, data):
         set_prom_metrics_zone_target_temperature(
             metrics, data, zone, zone_setpoint_mode
         )
-
-    set_prom_metrics_last_update(metrics)
-
-
-def set_prom_metrics_last_update(metrics):
-    metrics["last_update"].set_to_current_time()
-    logging.debug(f"System last update set to {time.time()}")
 
 
 def set_prom_metrics_zone_up(metrics, zone):
