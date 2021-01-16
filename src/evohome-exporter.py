@@ -134,10 +134,7 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
-        prom.Gauge(
-            name="evohome_request_processing_last",
-            documentation="Evohome last successful request timestamp",
-        ),
+        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
     ]
 
     prom.start_http_server(settings["scrape_port"])
@@ -201,7 +198,8 @@ def set_prom_metrics(metrics, data):
 
 
 def set_prom_metrics_last_update(metrics):
-    metrics["request_processing_last"].set(time.time())
+    metrics["last_update"].set_to_current_time()
+    logging.debug(f"System last update set to {time.time()}")
 
 
 def set_prom_metrics_zone_up(metrics, zone):
