@@ -149,13 +149,13 @@ def initialise_metrics(settings):
 
 
 # Create a metric to track time spent and requests made.
-REQUEST_TIME = prom.Summary(
-    "evohome_request_processing", "Time spent processing request"
+EVOHOME_REQUEST_TIME = prom.Summary(
+    "evohome_request_processing", "Time spent processing evohome request"
 )
 
 
 # Decorate function with metric.
-@REQUEST_TIME.time()
+@EVOHOME_REQUEST_TIME.time()
 def get_evohome_data(client):
     tcs = client._get_single_heating_system()
     tcs.location.status()
@@ -171,6 +171,17 @@ def clear_metric(metric, *label_values):
     if label_values in metric._metrics:
         metric.remove(label_values)
         logging.debug(f"Clear metric {metric} with label values {label_values}")
+
+
+def set_metric(metrics, zone, temperature, *setpoint_types):
+    metrics["temperature_celcius"].labels(
+        zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_types[0]
+    ).set(temperature)
+    logging.debug(f"Zone {zone.name} {setpoint_types[0]} temperature: {temperature}")
+    all_setpoint_types = {"permanent", "temporary", "adaptive", "planned"}
+    assert set(setpoint_types).issubset(all_setpoint_types)
+    for t in all_setpoint_types - set(setpoint_types):
+        clear_metric(metrics["temperature_celcius"], (zone.zoneId, zone.name, t))
 
 
 def set_prom_metrics(metrics, data):
@@ -207,35 +218,35 @@ def set_prom_metrics(metrics, data):
                 f"Zone {zone.name} measured temperature: {zone_measured_temperature}"
             )
 
-            zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
-            metrics["temperature_celcius"].labels(
-                zone_id=zone.zoneId, zone_name=zone.name, type="setpoint"
-            ).set(zone_target_temperature)
-            logging.debug(
-                f"Zone {zone.name} target temperature: {zone_target_temperature}"
-            )
-
             zone_setpoint_mode = zone.setpointStatus["setpointMode"]
             metrics["zone_mode"].labels(zone_id=zone.zoneId, zone_name=zone.name).state(
                 zone_setpoint_mode
             )
             logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
-            if zone_setpoint_mode == "FollowSchedule":
+
+            zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
+            if zone_setpoint_mode == "TemporaryOverride":
+                set_metric(metrics, zone, zone_target_temperature, "temporary")
+            elif zone_setpoint_mode == "PermanentOverride":
+                set_metric(metrics, zone, zone_target_temperature, "permanent")
+            else:
+                # follow schedule
                 schedule = data["schedules"][zone.zoneId]
                 zone_planned_temperature = calculate_planned_temperature(schedule)
-                metrics["temperature_celcius"].labels(
-                    zone_id=zone.zoneId, zone_name=zone.name, type="planned"
-                ).set(zone_planned_temperature)
-                logging.debug(
-                    f"Zone {zone.name} planned temperature: {zone_planned_temperature}"
-                )
-            else:
-                clear_metric(
-                    metrics["temperature_celcius"], (zone.zoneId, zone.name, "planned")
-                )
+
+                # adaptive
+                if zone_planned_temperature != zone_target_temperature:
+                    set_metric(
+                        metrics, zone, zone_target_temperature, "adaptive", "planned"
+                    )
+                    set_metric(
+                        metrics, zone, zone_planned_temperature, "planned", "adaptive"
+                    )
+                else:
+                    set_metric(metrics, zone, zone_planned_temperature, "planned")
 
         else:
-            for type in ["measured", "setpoint", "planned"]:
+            for type in ["measured", "setpoint", "planned", "adaptive"]:
                 clear_metric(
                     metrics["temperature_celcius"], (zone.zoneId, zone.name, type)
                 )
@@ -256,22 +267,25 @@ def clear_prom_metrics(metrics):
 
 def main():
     settings = initialise_settings()
-    client = initialise_evohome(settings)
+    evo_client = initialise_evohome(settings)
     metrics = initialise_metrics(settings)
 
     while True:
         data = {}
         try:
-            data = get_evohome_data(client)
+            data = get_evohome_data(evo_client)
+
         except Exception as e:
             logging.warning(f"Error while retrieving evohome data: {e}")
             if data is None or len(data) == 0 or data.get("tcs", None) is None:
                 clear_prom_metrics(metrics)
-        else:
-            try:
-                set_prom_metrics(metrics, data)
-            except Exception as e:
-                logging.warning(f"Error while setting prometheus metrics: {e}")
+            time.sleep(settings["poll_interval"])
+            continue
+
+        try:
+            set_prom_metrics(metrics, data)
+        except Exception as e:
+            logging.warning(f"Error while setting prometheus metrics: {e}")
 
         time.sleep(settings["poll_interval"])
 
