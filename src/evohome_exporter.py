@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 from os import environ
+from random import normalvariate
 
 import prometheus_client as prom
 from evohomeclient2 import EvohomeClient
@@ -54,26 +55,24 @@ schedules = dict()
 schedules_next_update = dict()
 
 
-def get_schedules(client):
+def get_schedules(client, zones):
     global schedules_next_update
     global schedules
 
-    from random import expovariate
-
     # this takes time, update at random on average once per hour
-    for zone in client._get_single_heating_system()._zones:
+    for zone in zones:
         if (
             schedules_next_update.get(zone.zoneId, dt.datetime.min)
             <= dt.datetime.now()
         ):
             schedules[zone.zoneId] = zone.schedule()
-            minutes = expovariate(1 / 60)
+            minutes = normalvariate(60, 10)
             schedules_next_update[
                 zone.zoneId
             ] = dt.datetime.now() + dt.timedelta(minutes=minutes)
             logging.debug(
                 f"Schedule update for zone {zone.name},"
-                f"next in {minutes} minutes"
+                f"next in {minutes:.0f} minutes"
             )
 
     return schedules
@@ -171,7 +170,7 @@ def get_evohome_data(client):
     with EVOHOME_REQUEST_TIME.time():
         tcs = client._get_single_heating_system()
         tcs.location.status()
-        data = {"tcs": tcs, "schedules": get_schedules(client)}
+        data = {"tcs": tcs, "schedules": get_schedules(client, tcs._zones)}
 
     logging.debug("Retrieved data:")
     logging.debug(
