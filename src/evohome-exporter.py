@@ -128,12 +128,6 @@ def initialise_metrics(settings):
             documentation="Evohome zone status",
             labelnames=["zone_id", "zone_name"],
         ),
-        prom.Enum(
-            name="evohome_zone_mode",
-            documentation="Evohome zone mode",
-            states=["FollowSchedule", "TemporaryOverride", "PermanentOverride"],
-            labelnames=["zone_id", "zone_name"],
-        ),
         prom.Gauge(
             name="evohome_temperature",
             documentation="Evohome temperature",
@@ -167,102 +161,156 @@ def get_evohome_data(client):
     return data
 
 
-def clear_metric(metric, *label_values):
-    if label_values in metric._metrics:
-        metric.remove(label_values)
-        logging.debug(f"Clear metric {metric} with label values {label_values}")
-
-
-def set_metric(metrics, zone, temperature, *setpoint_types):
-    metrics["temperature_celcius"].labels(
-        zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_types[0]
-    ).set(temperature)
+def set_metric(metric, zone, temperature, *setpoint_types):
+    metric.labels(zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_types[0]).set(
+        temperature
+    )
     logging.debug(f"Zone {zone.name} {setpoint_types[0]} temperature: {temperature}")
+
+    # clear others
     all_setpoint_types = {"permanent", "temporary", "adaptive", "planned"}
     assert set(setpoint_types).issubset(all_setpoint_types)
     for t in all_setpoint_types - set(setpoint_types):
-        clear_metric(metrics["temperature_celcius"], (zone.zoneId, zone.name, t))
+        label_values = (zone.zoneId, zone.name, t)
+        if label_values in metric._metrics:
+            metric.remove(*label_values)
+            logging.debug(
+                f"Cleared metric {metric._name} with label values {label_values}"
+            )
 
 
 def set_prom_metrics(metrics, data):
     metrics["up"].set(1)
 
-    system_mode_status = data["tcs"].systemModeStatus
-    system_mode_permanent_flag = system_mode_status.get("isPermanent", False)
-    metrics["tcs_permanent"].set(float(system_mode_permanent_flag))
-    logging.debug(f"System mode permanent: {system_mode_permanent_flag}")
+    system_mode_status = set_prom_metrics_mode_status(metrics, data)
+    set_prom_metrics_system_mode(metrics, system_mode_status)
+    set_prom_metrics_active_faults(metrics, data)
 
-    system_mode = system_mode_status.get("mode", "Auto")
-    metrics["tcs_mode"].state(system_mode)
-    logging.debug(f"System mode: {system_mode}")
+    for zone in data["tcs"].zones.values():
+        if not set_prom_metrics_zone_up(metrics, zone):
+            continue
+        set_prom_metrics_zone_measured_temperature(metrics, zone)
+        zone_setpoint_mode = set_prom_metrics_zone_setpoint_mode(zone)
+        set_prom_metrics_zone_target_temperature(
+            metrics, data, zone, zone_setpoint_mode
+        )
 
+    set_prom_metrics_last_update(metrics)
+
+
+def set_prom_metrics_last_update(metrics):
+    metrics["last_update"].set_to_current_time()
+    logging.debug(f"System last update set to {time.time()}")
+
+
+def set_prom_metrics_zone_up(metrics, zone):
+    zone_temperature_up = zone.temperatureStatus.get("isAvailable", False)
+    metrics["zone_up"].labels(zone_id=zone.zoneId, zone_name=zone.name).set(
+        float(zone_temperature_up)
+    )
+    logging.debug(f"Zone {zone.name} temperature up: {zone_temperature_up}")
+
+    if not zone_temperature_up:
+        logging.warning(f"Zone {zone._name} is down")
+        metric = metrics["temperature_celcius"]
+        for t in ["measured", "setpoint", "planned", "adaptive"]:
+            label_values = (zone.zoneId, zone.name, t)
+            if label_values in metric._metrics:
+                metric.remove(*label_values)
+                logging.debug(
+                    f"Cleared metric {metric._name} with label values {label_values}"
+                )
+    return zone_temperature_up
+
+
+def set_prom_metrics_zone_target_temperature(metrics, data, zone, zone_setpoint_mode):
+    zone_target_temperature = zone.setpointStatus["targetHea tTemperature"]
+    if zone_setpoint_mode == "TemporaryOverride":
+        set_metric(
+            metrics["temperature_celcius"], zone, zone_target_temperature, "temporary"
+        )
+    elif zone_setpoint_mode == "PermanentOverride":
+        set_metric(
+            metrics["temperature_celcius"], zone, zone_target_temperature, "permanent"
+        )
+    else:
+        # follow schedule
+        set_prom_metrics_zone_planned_temperature(
+            metrics, data, zone, zone_target_temperature
+        )
+
+
+def set_prom_metrics_zone_planned_temperature(
+    metrics, data, zone, zone_target_temperature
+):
+    schedule = data["schedules"][zone.zoneId]
+    zone_planned_temperature = calculate_planned_temperature(schedule)
+    if zone_planned_temperature != zone_target_temperature:
+        # adaptive
+        set_metric(
+            metrics["temperature_celcius"],
+            zone,
+            zone_target_temperature,
+            "adaptive",
+            "planned",
+        )
+        set_metric(
+            metrics["temperature_celcius"],
+            zone,
+            zone_planned_temperature,
+            "planned",
+            "adaptive",
+        )
+    else:
+        set_metric(
+            metrics["temperature_celcius"], zone, zone_planned_temperature, "planned"
+        )
+
+
+def set_prom_metrics_zone_setpoint_mode(zone):
+    zone_setpoint_mode = zone.setpointStatus["setpointMode"]
+    logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
+    return zone_setpoint_mode
+
+
+def set_prom_metrics_zone_measured_temperature(metrics, zone):
+    zone_measured_temperature = zone.temperatureStatus["temperature"]
+    metrics["temperature_celcius"].labels(
+        zone_id=zone.zoneId, zone_name=zone.name, type="measured"
+    ).set(zone_measured_temperature)
+    logging.debug(f"Zone {zone.name} measured temperature: {zone_measured_temperature}")
+
+
+def set_prom_metrics_active_faults(metrics, data):
     active_faults = data["tcs"].activeFaults
     metrics["tcs_active_faults"].set(float(active_faults is not None))
     for active_fault in active_faults:
         logging.warning(f"Active fault: {active_fault}")
 
-    for zone in data["tcs"].zones.values():
 
-        zone_temperature_up = zone.temperatureStatus.get("isAvailable", False)
-        metrics["zone_up"].labels(zone_id=zone.zoneId, zone_name=zone.name).set(
-            float(zone_temperature_up)
-        )
-        logging.debug(f"Zone {zone.name} temperature up: {zone_temperature_up}")
+def set_prom_metrics_system_mode(metrics, system_mode_status):
+    system_mode = system_mode_status.get("mode", "Auto")
+    metrics["tcs_mode"].state(system_mode)
+    logging.debug(f"System mode: {system_mode}")
 
-        if zone_temperature_up:
-            zone_measured_temperature = zone.temperatureStatus["temperature"]
-            metrics["temperature_celcius"].labels(
-                zone_id=zone.zoneId, zone_name=zone.name, type="measured"
-            ).set(zone_measured_temperature)
-            logging.debug(
-                f"Zone {zone.name} measured temperature: {zone_measured_temperature}"
-            )
 
-            zone_setpoint_mode = zone.setpointStatus["setpointMode"]
-            metrics["zone_mode"].labels(zone_id=zone.zoneId, zone_name=zone.name).state(
-                zone_setpoint_mode
-            )
-            logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
-
-            zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
-            if zone_setpoint_mode == "TemporaryOverride":
-                set_metric(metrics, zone, zone_target_temperature, "temporary")
-            elif zone_setpoint_mode == "PermanentOverride":
-                set_metric(metrics, zone, zone_target_temperature, "permanent")
-            else:
-                # follow schedule
-                schedule = data["schedules"][zone.zoneId]
-                zone_planned_temperature = calculate_planned_temperature(schedule)
-
-                # adaptive
-                if zone_planned_temperature != zone_target_temperature:
-                    set_metric(
-                        metrics, zone, zone_target_temperature, "adaptive", "planned"
-                    )
-                    set_metric(
-                        metrics, zone, zone_planned_temperature, "planned", "adaptive"
-                    )
-                else:
-                    set_metric(metrics, zone, zone_planned_temperature, "planned")
-
-        else:
-            for type in ["measured", "setpoint", "planned", "adaptive"]:
-                clear_metric(
-                    metrics["temperature_celcius"], (zone.zoneId, zone.name, type)
-                )
-            clear_metric(metrics["zone_mode"], (zone.zoneId, zone.name))
-
-    metrics["last_update"].set_to_current_time()
-    logging.debug(f"System last update set to {time.time()}")
+def set_prom_metrics_mode_status(metrics, data):
+    system_mode_status = data["tcs"].systemModeStatus
+    system_mode_permanent_flag = system_mode_status.get("isPermanent", False)
+    metrics["tcs_permanent"].set(float(system_mode_permanent_flag))
+    logging.debug(f"System mode permanent: {system_mode_permanent_flag}")
+    return system_mode_status
 
 
 def clear_prom_metrics(metrics):
     for k, m in metrics.items():
         if k == "up":
             m.set(0)
+            logging.debug("System down, set up metric to 0")
             continue
         for label_values in m._metrics:
             m.remove(label_values)
+            logging.debug(f"Cleared metric {m._name} with label values {label_values}")
 
 
 def main():
