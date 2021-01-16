@@ -12,15 +12,16 @@ logging.root.handlers[0].setFormatter(
     logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
 )
 
-username_env_var = "EVOHOME_USERNAME"
-password_env_var = "EVOHOME_PASSWORD"
-poll_interval_env_var = "EVOHOME_POLL_INTERVAL"
-scrape_port_env_var = "EVOHOME_SCRAPE_PORT"
+USERNAME_ENV_VAR = "EVOHOME_USERNAME"
+PASSWORD_ENV_VAR = "EVOHOME_PASSWORD"
+POLL_INTERVAL_ENV_VAR = "EVOHOME_POLL_INTERVAL"
+SCRAPE_PORT_ENV_VAR = "EVOHOME_SCRAPE_PORT"
 
 
 def get_set_point(zone_schedule, day_of_week, spot_time):
     daily_schedules = {
-        s["DayOfWeek"]: s["Switchpoints"] for s in zone_schedule["DailySchedules"]
+        s["DayOfWeek"]: s["Switchpoints"]
+        for s in zone_schedule["DailySchedules"]
     }
     switch_points = {
         dt.time.fromisoformat(s["TimeOfDay"]): s["heatSetpoint"]
@@ -36,12 +37,15 @@ def get_set_point(zone_schedule, day_of_week, spot_time):
 
 
 def calculate_planned_temperature(zone_schedule):
-    current_time = dt.datetime.now().time()
-    current_weekday = dt.datetime.today().weekday()
-    setpoint = get_set_point(zone_schedule, current_weekday, current_time)
+    spot_datetime = dt.datetime.now()
+    spot_time = spot_datetime.time()
+    spot_date = spot_datetime.today()
+    spot_weekday = spot_date.weekday()
+    setpoint = get_set_point(zone_schedule, spot_weekday, spot_time)
     if setpoint is not None:
         return setpoint
-    yesterday = dt.datetime.today() - dt.timedelta(days=-1)
+
+    yesterday = spot_date - dt.timedelta(days=-1)
     yesterday_weekday = yesterday.weekday()
     return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
 
@@ -58,14 +62,18 @@ def get_schedules(client):
 
     # this takes time, update at random on average once per hour
     for zone in client._get_single_heating_system()._zones:
-        if schedules_next_update.get(zone.zoneId, dt.datetime.min) <= dt.datetime.now():
+        if (
+            schedules_next_update.get(zone.zoneId, dt.datetime.min)
+            <= dt.datetime.now()
+        ):
             schedules[zone.zoneId] = zone.schedule()
             minutes = expovariate(1 / 60)
-            schedules_next_update[zone.zoneId] = dt.datetime.now() + dt.timedelta(
-                minutes=minutes
-            )
+            schedules_next_update[
+                zone.zoneId
+            ] = dt.datetime.now() + dt.timedelta(minutes=minutes)
             logging.debug(
-                f"Schedule update for zone {zone.name}, next in {minutes} minutes"
+                f"Schedule update for zone {zone.name},"
+                f"next in {minutes} minutes"
             )
 
     return schedules
@@ -75,16 +83,16 @@ def initialise_settings():
     logging.info("Evohome exporter for Prometheus")
     settings = {}
     try:
-        settings["username"] = environ[username_env_var].strip()
-        settings["password"] = environ[password_env_var].strip()
+        settings["username"] = environ[USERNAME_ENV_VAR].strip()
+        settings["password"] = environ[PASSWORD_ENV_VAR].strip()
     except KeyError:
         logging.error("Missing environment variables for Evohome credentials:")
-        logging.error(f"\t{username_env_var} - Evohome username")
-        logging.error(f"\t{password_env_var} - Evohome password")
+        logging.error(f"\t{USERNAME_ENV_VAR} - Evohome username")
+        logging.error(f"\t{PASSWORD_ENV_VAR} - Evohome password")
         exit(1)
 
-    settings["poll_interval"] = int(environ.get(poll_interval_env_var, 60))
-    settings["scrape_port"] = int(environ.get(scrape_port_env_var, 8082))
+    settings["poll_interval"] = int(environ.get(POLL_INTERVAL_ENV_VAR, 60))
+    settings["scrape_port"] = int(environ.get(SCRAPE_PORT_ENV_VAR, 8082))
 
     logging.info("Evohome exporter settings:")
     logging.info(f"Username: {settings['username']}")
@@ -112,10 +120,12 @@ def initialise_metrics(settings):
     metrics_list = [
         prom.Gauge(name="evohome_up", documentation="Evohome status"),
         prom.Gauge(
-            name="evohome_tcs_active_faults", documentation="Evohome active faults"
+            name="evohome_tcs_active_faults",
+            documentation="Evohome active faults",
         ),
         prom.Gauge(
-            name="evohome_tcs_permanent", documentation="Evohome permanent state"
+            name="evohome_tcs_permanent",
+            documentation="Evohome permanent state",
         ),
         prom.Enum(
             name="evohome_tcs_mode",
@@ -141,7 +151,9 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
-        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
+        prom.Gauge(
+            name="evohome_last_update", documentation="Evohome last update"
+        ),
     ]
 
     prom.start_http_server(settings["scrape_port"])
@@ -162,17 +174,21 @@ def get_evohome_data(client):
         data = {"tcs": tcs, "schedules": get_schedules(client)}
 
     logging.debug("Retrieved data:")
-    logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
+    logging.debug(
+        f"System location: {tcs.location.city}, {tcs.location.country}"
+    )
     logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
     logging.debug(f"System model type: {tcs.modelType}")
     return data
 
 
 def set_metric(metric, zone, temperature, *setpoint_types):
-    metric.labels(zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_types[0]).set(
-        temperature
+    metric.labels(
+        zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_types[0]
+    ).set(temperature)
+    logging.debug(
+        f"Zone {zone.name} {setpoint_types[0]} temperature: {temperature}"
     )
-    logging.debug(f"Zone {zone.name} {setpoint_types[0]} temperature: {temperature}")
 
     # clear others
     all_setpoint_types = {"permanent", "temporary", "adaptive", "planned"}
@@ -182,7 +198,8 @@ def set_metric(metric, zone, temperature, *setpoint_types):
         if label_values in metric._metrics:
             metric.remove(*label_values)
             logging.debug(
-                f"Cleared metric {metric._name} with label values {label_values}"
+                f"Cleared metric {metric._name} "
+                f"with label values {label_values}"
             )
 
 
@@ -224,20 +241,29 @@ def set_prom_metrics_zone_up(metrics, zone):
             if label_values in metric._metrics:
                 metric.remove(*label_values)
                 logging.debug(
-                    f"Cleared metric {metric._name} with label values {label_values}"
+                    f"Cleared metric {metric._name} "
+                    f"with label values {label_values}"
                 )
     return zone_temperature_up
 
 
-def set_prom_metrics_zone_target_temperature(metrics, data, zone, zone_setpoint_mode):
+def set_prom_metrics_zone_target_temperature(
+    metrics, data, zone, zone_setpoint_mode
+):
     zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
     if zone_setpoint_mode == "TemporaryOverride":
         set_metric(
-            metrics["temperature_celcius"], zone, zone_target_temperature, "temporary"
+            metrics["temperature_celcius"],
+            zone,
+            zone_target_temperature,
+            "temporary",
         )
     elif zone_setpoint_mode == "PermanentOverride":
         set_metric(
-            metrics["temperature_celcius"], zone, zone_target_temperature, "permanent"
+            metrics["temperature_celcius"],
+            zone,
+            zone_target_temperature,
+            "permanent",
         )
     else:
         # follow schedule
@@ -269,7 +295,10 @@ def set_prom_metrics_zone_planned_temperature(
         )
     else:
         set_metric(
-            metrics["temperature_celcius"], zone, zone_planned_temperature, "planned"
+            metrics["temperature_celcius"],
+            zone,
+            zone_planned_temperature,
+            "planned",
         )
 
 
@@ -284,7 +313,9 @@ def set_prom_metrics_zone_measured_temperature(metrics, zone):
     metrics["temperature_celcius"].labels(
         zone_id=zone.zoneId, zone_name=zone.name, type="measured"
     ).set(zone_measured_temperature)
-    logging.debug(f"Zone {zone.name} measured temperature: {zone_measured_temperature}")
+    logging.debug(
+        f"Zone {zone.name} measured temperature: {zone_measured_temperature}"
+    )
 
 
 def set_prom_metrics_active_faults(metrics, data):
@@ -315,7 +346,9 @@ def clear_prom_metrics(metrics):
         # remove all other docker metrics
         for label_values in m._metrics:
             m.remove(label_values)
-            logging.debug(f"Cleared metric {m._name} with label values {label_values}")
+            logging.debug(
+                f"Cleared metric {m._name} with label values {label_values}"
+            )
 
 
 def main():
