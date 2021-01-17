@@ -1,5 +1,5 @@
 # set base image (host OS)
-FROM python:3-slim
+FROM python:3.9-slim
 
 # set the run user & set working dir to its home dir
 RUN useradd --create-home pythonuser
