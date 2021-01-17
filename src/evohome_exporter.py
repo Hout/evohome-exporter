@@ -347,7 +347,8 @@ def clear_prom_metrics(metrics):
             for label_values in m._metrics:
                 m.remove(label_values)
                 logging.debug(
-                    f"Cleared metric {m._name} with label values {label_values}"
+                    f"Cleared metric {m._name} with "
+                    f"label values {label_values}"
                 )
 
 
