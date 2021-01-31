@@ -29,7 +29,7 @@ def get_set_point(zone_schedule, day_of_week, spot_time):
     }
     candidate_times = [k for k in switch_points.keys() if k <= spot_time]
     if len(candidate_times) == 0:
-        # no time less than current time
+        # no time on or earlier than current time
         return None
 
     candidate_time = max(candidate_times)
@@ -42,6 +42,8 @@ def calculate_planned_temperature(zone_schedule):
     setpoint = get_set_point(zone_schedule, day_of_week, current_time)
     if setpoint is not None:
         return setpoint
+
+    # get last setpoint from yesterday
     yesterday = dt.datetime.today() - dt.timedelta(days=-1)
     yesterday_weekday = yesterday.weekday()
     return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
