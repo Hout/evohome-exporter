@@ -6,12 +6,6 @@ Uses the python evohomeclient from:
 https://pypi.org/project/evohomeclient/
 https://github.com/watchforstock/evohome-client
 
-## Build Docker image
-
-```shell
-docker build . -t evohome-exporter
-```
-
 ## Prerequisites
 
 Store your credentials in a file:
@@ -23,23 +17,43 @@ EVOHOME_PASSWORD=My-v3ry-secret-p4$sWord
 EOF
 ```
 
-There is an additional setting for the poll interval in seconds.
-Specifying this is optional; the default value is 150 seconds:
-
-```shell
-echo <<EOF >> .env
-EVOHOME_POLL_INTERVAL=300
-EOF
-```
+There are additional settings for the poll interval in seconds and the scrape port.
+Specifying this is optional; the default values are 150 seconds and 8082 respectively:
 
 Note: temperatures generally do not evolve quick so setting this value anything less than 150 has na added value.
 Session timeout is 900 seconds so you might want to use value smaller than that.
 
-## Run Docker image
+```shell
+echo <<EOF >> .env
+EVOHOME_POLL_INTERVAL=300
+EVOHOME_SCRAPE_PORT=8082
+EOF
+```
+
+## Build & run in Docker
 
 ```shell
-docker run --rm -it --name evohome-exporter -p 8082:8082 evohome-exporter
+docker build . -t <image-name>
 ```
+Adjust the image name (currently ``locahost:32000/evohome-exporter:registry``) in the deployment file .
+
+```shell
+docker run --rm -it --name evohome-exporter -p 8082:8082 <image-name>
+```
+
+## Run in Kubernetes
+
+- store the image in a repository and adjust the image name in the deployment file ``k8s-evohome-exporter-deployment.yaml``.
+- store the credentials in the secret file ``k8s-evohome-exporter-secret.yaml``. The secrets are base64 encoded.
+  Create them with ``echo -n secret-word | base64``.
+- apply in this order:
+  * namespace
+  * secret
+  * service
+  * deployment
+  * monitor
+
+The configuration is set to be scraped by the Prometheus Operator configuration.
 
 ## Example output
 
