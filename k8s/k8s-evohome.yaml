@@ -83,5 +83,10 @@ spec:
               port: metrics
             initialDelaySeconds: 10
             periodSeconds: 10
----
-
+          volumeMounts:
+            - name: tz
+              mountPath: /etc/localtime
+      volumes:
+        - name: tz
+          hostPath:
+            path: /etc/localtime
