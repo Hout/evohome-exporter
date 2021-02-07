@@ -3,6 +3,8 @@ kind: ServiceMonitor
 metadata:
   name: evohome-exporter-svcmon
   namespace: evohome
+  labels:
+    app: evohome-exporter
 spec:
   jobLabel: evohome-exporter
   selector:

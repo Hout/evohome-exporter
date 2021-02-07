@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: persisted
+spec:
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: microk8s-hostpath
+        resources:
+          requests:
+            storage: 1Gi

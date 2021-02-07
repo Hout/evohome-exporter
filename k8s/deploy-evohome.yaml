@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: evohome-deploy
   namespace: evohome
+  labels:
+    app: evohome-exporter
 spec:
   replicas: 1
   selector:
@@ -12,9 +14,6 @@ spec:
     metadata:
       labels:
         app: evohome-exporter
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8082"
     spec:
       containers:
         - name: evohome-exporter

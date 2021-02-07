@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: evohome-svc
   namespace: evohome
+  labels:
+    app: evohome-exporter
 spec:
   selector:
     app: evohome-exporter
