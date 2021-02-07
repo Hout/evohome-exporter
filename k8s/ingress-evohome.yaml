@@ -1,0 +1,17 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: evohome-ingress
+  namespace: evohome-exporter
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /evohome
+            pathType: Prefix
+            backend:
+              service:
+                name: evohome-exporter
+                port:
+                  number: 8082

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: evohome-exporter
+  namespace: evohome-exporter
+spec:
+  selector:
+    app: evohome-exporter
+  type: NodePort
+  ports:
+    - name: evohome-exporter-http
+      protocol: TCP
+      port: 8082
+      targetPort: 8082
+      nodePort: 30000
