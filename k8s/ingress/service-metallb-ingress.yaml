@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingress
+  name: metallb-ingress-svc
   namespace: ingress
 spec:
   selector:
