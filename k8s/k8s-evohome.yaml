@@ -1,3 +1,42 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: evohome
+  labels:
+    app: evohome-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: evohome-svc
+  namespace: evohome
+  labels:
+    app: evohome-exporter
+spec:
+  selector:
+    app: evohome-exporter
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8082
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: evohome-exporter-svcmon
+  namespace: evohome
+  labels:
+    app: evohome-exporter
+spec:
+  jobLabel: evohome-exporter
+  selector:
+    matchLabels:
+      app: evohome-exporter
+  endpoints:
+    - port: metrics
+      interval: 60s
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,3 +83,5 @@ spec:
               port: metrics
             initialDelaySeconds: 10
             periodSeconds: 10
+---
+
