@@ -17,6 +17,7 @@ logging.root.handlers[0].setFormatter(
 
 USERNAME_ENV_VAR = "EVOHOME_USERNAME"
 PASSWORD_ENV_VAR = "EVOHOME_PASSWORD"
+
 POLL_INTERVAL_ENV_VAR = "EVOHOME_POLL_INTERVAL"
 SCRAPE_PORT_ENV_VAR = "EVOHOME_SCRAPE_PORT"
 ZK_SERVICE_ENV_VAR = "EVOHOME_ZK_SERVICE"
@@ -119,6 +120,7 @@ def initialise_evohome(settings, zk):
                     refresh_token = token_data["refresh_token"]
                 except Exception as e:
                     logging.warn(f"Exception on loading access tokens from ZK: {e}")
+                    zk.ensure_path(token_path)
                     access_token = None
                     access_token_expires = None
                     refresh_token = None
@@ -152,9 +154,6 @@ def initialise_evohome(settings, zk):
 def initialise_zookeeper(settings):
     zk = KazooClient(hosts=settings["zk_service"])
     zk.start()
-    zk.ensure_path(ZK_BASE_PATH)
-    zk.ensure_path(ZK_SCHEDULES_PATH)
-
     return zk
 
 
