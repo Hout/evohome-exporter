@@ -2,6 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: persisted
+  namespace: monitoring
 spec:
   storage:
     volumeClaimTemplate:
