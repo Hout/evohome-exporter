@@ -45,7 +45,7 @@ metadata:
   labels:
     app: evohome-exporter
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: evohome-exporter
@@ -54,6 +54,18 @@ spec:
       labels:
         app: evohome-exporter
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - evohome-exporter
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: evohome-exporter
           image: localhost:32000/evohome-exporter:registry

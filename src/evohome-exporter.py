@@ -1,11 +1,14 @@
 import datetime as dt
+import json
 import logging
+from random import gauss
 import sys
 import time
 from os import environ
 
 import prometheus_client as prom
 from evohomeclient2 import EvohomeClient
+from kazoo.client import KazooClient
 
 logging.root.setLevel(logging.DEBUG)
 logging.root.handlers[0].setFormatter(
@@ -16,7 +19,15 @@ USERNAME_ENV_VAR = "EVOHOME_USERNAME"
 PASSWORD_ENV_VAR = "EVOHOME_PASSWORD"
 POLL_INTERVAL_ENV_VAR = "EVOHOME_POLL_INTERVAL"
 SCRAPE_PORT_ENV_VAR = "EVOHOME_SCRAPE_PORT"
+ZK_SERVICE_ENV_VAR = "EVOHOME_ZK_SERVICE"
 
+ZK_BASE_PATH = "/evohome"
+ZK_ELECTION_NODE = "election"
+ZK_TOKEN_NODE = "token"
+ZK_LOCK_NODE = "lock"
+ZK_SCHEDULES_PATH = f"{ZK_BASE_PATH}/schedules"
+
+TIME_MAX = 9999999999.0
 
 def get_set_point(zone_schedule, day_of_week, spot_time):
     daily_schedules = {
@@ -49,21 +60,25 @@ def calculate_planned_temperature(zone_schedule):
     return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
 
 
-schedules_updated = dt.datetime.min
-schedules = {}
+def get_schedules(client, zk):
+    schedules = {}
 
+    for client_zone in client._get_single_heating_system()._zones:
+        schedule_path = f"{ZK_SCHEDULES_PATH}/{client_zone.zoneId}"
+        try:
+            stored_schedule = json.loads(zk.get(schedule_path)[0].decode("utf-8"))
+        except Exception as e:
+            logging.warn(f"Exception on loading schedule data from ZK: {e}")
 
-def get_schedules(client):
-    global schedules_updated
-    global schedules
+            stored_schedule = (None, 0)
+            zk.ensure_path(schedule_path)
 
-    # this takes time, update once per hour
-    if schedules_updated < dt.datetime.now() - dt.timedelta(hours=1):
-        schedules = {
-            zone.zoneId: zone.schedule()
-            for zone in client._get_single_heating_system()._zones
-        }
-        schedules_updated = dt.datetime.now()
+        if stored_schedule[1] <= time.time():
+            stored_schedule = [client_zone.schedule(), time.time() + gauss(3600, 300)]
+            zk.set(schedule_path, json.dumps(stored_schedule).encode("utf-8"))
+
+        schedules[client_zone.zoneId] = stored_schedule[0]
+
     return schedules
 
 
@@ -81,6 +96,7 @@ def initialise_settings():
 
     settings["poll_interval"] = int(environ.get(POLL_INTERVAL_ENV_VAR, 60))
     settings["scrape_port"] = int(environ.get(SCRAPE_PORT_ENV_VAR, 8082))
+    settings["zk_service"] = environ.get(ZK_SERVICE_ENV_VAR, "zk-cs")
 
     logging.info("Evohome exporter settings:")
     logging.info(f"Username: {settings['username']}")
@@ -90,10 +106,39 @@ def initialise_settings():
     return settings
 
 
-def initialise_evohome(settings):
+def initialise_evohome(settings, zk):
+    client = None
+    token_path = f'{ZK_BASE_PATH}/{ZK_TOKEN_NODE}'
     while True:
         try:
-            return EvohomeClient(settings["username"], settings["password"])
+            with zk.Lock(ZK_BASE_PATH, ZK_LOCK_NODE):
+                try:
+                    token_data = json.loads(zk.get(token_path)[0].decode("utf-8"))
+                    access_token = token_data["access_token"]
+                    access_token_expires = dt.datetime.fromtimestamp(token_data["access_token_expires_unixtime"])
+                    refresh_token = token_data["refresh_token"]
+                except Exception as e:
+                    logging.warn(f"Exception on loading access tokens from ZK: {e}")
+                    access_token = None
+                    access_token_expires = None
+                    refresh_token = None
+
+                client = EvohomeClient(
+                    settings["username"],
+                    settings["password"],
+                    refresh_token=refresh_token,
+                    access_token=access_token,
+                    access_token_expires=access_token_expires,
+                )
+
+                token_data_json = json.dumps({
+                    "access_token": client.access_token,
+                    "access_token_expires_unixtime": client.access_token_expires.timestamp(),
+                    "refresh_token": client.refresh_token
+                }).encode("utf-8")
+                zk.set(token_path, token_data_json)
+
+            return client
         except Exception as e:
             if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
                 logging.warning(f": {e}")
@@ -102,6 +147,23 @@ def initialise_evohome(settings):
 
             logging.critical(f"Can't create Evohome client: {e}")
             sys.exit(99)
+
+
+def initialise_zookeeper(settings):
+    zk = KazooClient(hosts=settings["zk_service"])
+    zk.start()
+    zk.ensure_path(ZK_BASE_PATH)
+    zk.ensure_path(ZK_SCHEDULES_PATH)
+
+    return zk
+
+
+def cleanup_zookeeper(zk, client):
+    stored_zone_ids = set(zk.get_children(ZK_SCHEDULES_PATH))
+    client_zone_ids = {client_zone.zoneId for client_zone in client._get_single_heating_system()._zones}
+    to_delete = stored_zone_ids - client_zone_ids
+    for zone_id in to_delete:
+        zk.delete(f"{ZK_SCHEDULES_PATH}/{zone_id}")
 
 
 def initialise_metrics(settings):
@@ -167,10 +229,10 @@ REQUEST_TIME = prom.Summary(
 
 # Decorate function with metric.
 @REQUEST_TIME.time()
-def get_evohome_data(client):
+def get_evohome_data(client, zk):
     tcs = client._get_single_heating_system()
     tcs.location.status()
-    data = {"tcs": tcs, "schedules": get_schedules(client)}
+    data = {"tcs": tcs, "schedules": get_schedules(client, zk)}
     logging.debug("Retrieved data:")
     logging.debug(
         f"System location: {tcs.location.city}, {tcs.location.country}"
@@ -276,20 +338,26 @@ def set_prom_metrics_mode_status(metrics, data):
     logging.debug(f"System mode permanent: {system_mode_permanent_flag}")
     return system_mode_status
 
-
-def main():
-    settings = initialise_settings()
-    client = initialise_evohome(settings)
-    metrics = initialise_metrics(settings)
-
+def get_data_and_report_metrics(client, metrics, zk, settings):
     while True:
         try:
-            data = get_evohome_data(client)
+            data = get_evohome_data(client, zk)
             set_prom_metrics(metrics, data)
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
 
         time.sleep(settings["poll_interval"])
+
+def main():
+    settings = initialise_settings()
+    zk = initialise_zookeeper(settings)
+    client = initialise_evohome(settings, zk)
+    metrics = initialise_metrics(settings)
+
+    cleanup_zookeeper(zk, client)
+
+    election = zk.Election(ZK_BASE_PATH, ZK_ELECTION_NODE)
+    election.run(get_data_and_report_metrics, client, metrics, zk, settings)
 
 
 if __name__ == "__main__":
