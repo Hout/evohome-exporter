@@ -83,6 +83,8 @@ spec:
           envFrom:
             - secretRef:
                 name: evohome-credentials
+            - configMapRef:
+                name: evohome-settings
           startupProbe:
             httpGet:
               path: /metrics
