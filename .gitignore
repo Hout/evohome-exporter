@@ -107,3 +107,6 @@ Pipfile*
 *.out
 secret-evohome.yaml
 settings-evohome.yaml
+
+# vscode
+.vscode/

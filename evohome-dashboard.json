@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1613409002959,
+  "iteration": 1613579932207,
   "links": [],
   "panels": [
     {
@@ -90,9 +90,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(time()-evohome_last_update) < 60*60*24*7",
+          "expr": "scrape_duration_seconds{job=\"evohome-svc\"} > bool 0",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{pod}}",
           "refId": "A"
         }
       ],
@@ -360,7 +360,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -528,7 +528,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -696,7 +696,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -864,7 +864,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1032,7 +1032,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1200,7 +1200,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1368,7 +1368,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613409002959,
+      "repeatIteration": 1613579932207,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1504,7 +1504,6 @@
         "allValue": null,
         "current": {
           "selected": true,
-          "tags": [],
           "text": "All",
           "value": [
             "$__all"
@@ -1532,7 +1531,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-12h",
     "to": "now"
   },
   "timepicker": {
@@ -1547,5 +1546,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 8
+  "version": 2
 }
