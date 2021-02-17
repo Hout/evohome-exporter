@@ -30,6 +30,7 @@ ZK_SCHEDULES_PATH = f"{ZK_BASE_PATH}/schedules"
 
 TIME_MAX = 9999999999.0
 
+
 def get_set_point(zone_schedule, day_of_week, spot_time):
     daily_schedules = {
         s["DayOfWeek"]: s["Switchpoints"]
@@ -144,7 +145,7 @@ def initialise_evohome(settings, zk):
         except Exception as e:
             if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
                 logging.warning(f": {e}")
-                time.sleep(30)
+                time.sleep(gauss(30, 3))
                 continue
 
             logging.critical(f"Can't create Evohome client: {e}")
@@ -154,6 +155,7 @@ def initialise_evohome(settings, zk):
 def initialise_zookeeper(settings):
     zk = KazooClient(hosts=settings["zk_service"])
     zk.start()
+    zk.ensure_path(ZK_SCHEDULES_PATH)
     return zk
 
 
@@ -337,15 +339,6 @@ def set_prom_metrics_mode_status(metrics, data):
     logging.debug(f"System mode permanent: {system_mode_permanent_flag}")
     return system_mode_status
 
-def get_data_and_report_metrics(client, metrics, zk, settings):
-    while True:
-        try:
-            data = get_evohome_data(client, zk)
-            set_prom_metrics(metrics, data)
-        except Exception as e:
-            logging.error(f"Error in evohome main loop: {e}")
-
-        time.sleep(settings["poll_interval"])
 
 def main():
     settings = initialise_settings()
@@ -355,8 +348,17 @@ def main():
 
     cleanup_zookeeper(zk, client)
 
-    election = zk.Election(ZK_BASE_PATH, ZK_ELECTION_NODE)
-    election.run(get_data_and_report_metrics, client, metrics, zk, settings)
+    # write readiness file
+    open("/tmp/ready", "x").close()
+
+    while True:
+        try:
+            data = get_evohome_data(client, zk)
+            set_prom_metrics(metrics, data)
+        except Exception as e:
+            logging.error(f"Error in evohome main loop: {e}")
+
+        time.sleep(settings["poll_interval"] * gauss(1, 0.2))
 
 
 if __name__ == "__main__":
