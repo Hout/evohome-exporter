@@ -18,12 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && rm requirements.txt
 
 # copy the content of the local src directory to the working directory
-COPY src/evohome-exporter.py ./
+COPY src/*.py ./
 
 # Expose the port for Prometheus to scrape from
 RUN export EVOHOME_SCRAPE_PORT=8082
 EXPOSE 8082
 
 # command to run on container start
-ENTRYPOINT [ "python", "-u", "evohome-exporter.py"]
+ENTRYPOINT [ "python", "-u", "evohome_exporter.py"]
 CMD ["--bind", "0.0.0.0"]

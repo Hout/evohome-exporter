@@ -1,40 +1,30 @@
 import datetime as dt
-import json
 import logging
 from random import gauss
 import sys
 import time
-from os import environ
+from typing import Optional
 
 import prometheus_client as prom
 from evohomeclient2 import EvohomeClient
-from kazoo.client import KazooClient
+
+from evohome_zookeeper import EvohomeZookeeper
+from evohome_settings import EvohomeSettings
+from evohome_types import Schedules
+
 
 logging.root.setLevel(logging.DEBUG)
 logging.root.handlers[0].setFormatter(
     logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
 )
 
-USERNAME_ENV_VAR = "EVOHOME_USERNAME"
-PASSWORD_ENV_VAR = "EVOHOME_PASSWORD"
 
-POLL_INTERVAL_ENV_VAR = "EVOHOME_POLL_INTERVAL"
-SCRAPE_PORT_ENV_VAR = "EVOHOME_SCRAPE_PORT"
-ZK_SERVICE_ENV_VAR = "EVOHOME_ZK_SERVICE"
-
-ZK_BASE_PATH = "/evohome"
-ZK_ELECTION_NODE = "election"
-ZK_TOKEN_NODE = "token"
-ZK_LOCK_NODE = "lock"
-ZK_SCHEDULES_PATH = f"{ZK_BASE_PATH}/schedules"
-
-TIME_MAX = 9999999999.0
-
-
-def get_set_point(zone_schedule, day_of_week, spot_time):
+def get_set_point(
+    zone_schedule, day_of_week: int, spot_time: dt.time
+) -> Optional[float]:
+    # from list to dictionary { day of week: list of switchpoints}
     daily_schedules = {
-        s["DayOfWeek"]: s["Switchpoints"]
-        for s in zone_schedule["DailySchedules"]
+        s["DayOfWeek"]: s["Switchpoints"] for s in zone_schedule["DailySchedules"]
     }
     switch_points = {
         dt.time.fromisoformat(s["TimeOfDay"]): s["heatSetpoint"]
@@ -49,97 +39,78 @@ def get_set_point(zone_schedule, day_of_week, spot_time):
     return switch_points[candidate_time]
 
 
-def calculate_planned_temperature(zone_schedule):
+def calculate_planned_temperature(zone_schedule) -> float:
     current_time = dt.datetime.now().time()
     day_of_week = dt.datetime.today().weekday()
     setpoint = get_set_point(zone_schedule, day_of_week, current_time)
-    if setpoint is not None:
+    if setpoint:
         return setpoint
 
     # get last setpoint from yesterday
     yesterday = dt.datetime.today() - dt.timedelta(days=-1)
     yesterday_weekday = yesterday.weekday()
-    return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
+    setpoint = get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
+    assert(setpoint)
+    return setpoint
 
 
-def get_schedules(client, zk):
-    schedules = {}
+def get_schedules(client, zk: EvohomeZookeeper) -> Schedules:
+    schedules: Schedules = {}
 
-    for client_zone in client._get_single_heating_system()._zones:
-        schedule_path = f"{ZK_SCHEDULES_PATH}/{client_zone.zoneId}"
+    for zone in client._get_single_heating_system()._zones:
+        zone_id = zone.zoneId
         try:
-            stored_schedule = json.loads(zk.get(schedule_path)[0].decode("utf-8"))
+            schedule = zk.get_schedule(zone_id)
+            if not schedule:
+                schedule = zone.schedule()
+                zk.set_schedule(zone_id, schedule)
         except Exception as e:
-            logging.warn(f"Exception on loading schedule data from ZK: {e}")
-
-            stored_schedule = (None, 0)
-            zk.ensure_path(schedule_path)
-
-        if stored_schedule[1] <= time.time():
-            stored_schedule = [client_zone.schedule(), time.time() + gauss(3600, 300)]
-            zk.set(schedule_path, json.dumps(stored_schedule).encode("utf-8"))
-
-        schedules[client_zone.zoneId] = stored_schedule[0]
+            logging.warn(f"Exception on getting schedule from ZK: {e}")
+            schedule = zone.schedule()
+            zk.set_schedule(zone_id, schedule)
+        schedules[zone_id] = schedule
 
     return schedules
 
 
-def initialise_settings():
+def initialise_settings() -> EvohomeSettings:
     logging.info("Evohome exporter for Prometheus")
-    settings = {}
-    try:
-        settings["username"] = environ[USERNAME_ENV_VAR].strip()
-        settings["password"] = environ[PASSWORD_ENV_VAR].strip()
-    except KeyError:
-        logging.error("Missing environment variables for Evohome credentials:")
-        logging.error(f"\t{USERNAME_ENV_VAR} - Evohome username")
-        logging.error(f"\t{PASSWORD_ENV_VAR} - Evohome password")
-        exit(1)
-
-    settings["poll_interval"] = int(environ.get(POLL_INTERVAL_ENV_VAR, 60))
-    settings["scrape_port"] = int(environ.get(SCRAPE_PORT_ENV_VAR, 8082))
-    settings["zk_service"] = environ.get(ZK_SERVICE_ENV_VAR, "zk-cs")
-
-    logging.info("Evohome exporter settings:")
-    logging.info(f"Username: {settings['username']}")
-    logging.info(f"Poll interval: {settings['poll_interval']} seconds")
-    logging.info(f"Scrape port: {settings['scrape_port']}")
-
+    settings = EvohomeSettings()
     return settings
 
 
-def initialise_evohome(settings, zk):
+def initialise_evohome(settings: EvohomeSettings, zk: EvohomeZookeeper):
     client = None
-    token_path = f'{ZK_BASE_PATH}/{ZK_TOKEN_NODE}'
     while True:
         try:
-            with zk.Lock(ZK_BASE_PATH, ZK_LOCK_NODE):
+            with zk.lock_token():
                 try:
-                    token_data = json.loads(zk.get(token_path)[0].decode("utf-8"))
-                    access_token = token_data["access_token"]
-                    access_token_expires = dt.datetime.fromtimestamp(token_data["access_token_expires_unixtime"])
-                    refresh_token = token_data["refresh_token"]
+                    token = zk.get_token()
+                    access_token = token["access_token"]
+                    access_token_expires = dt.datetime.fromtimestamp(
+                        token["access_token_expires_unixtime"]
+                    )
+                    refresh_token = token["refresh_token"]
                 except Exception as e:
                     logging.warn(f"Exception on loading access tokens from ZK: {e}")
-                    zk.ensure_path(token_path)
                     access_token = None
                     access_token_expires = None
                     refresh_token = None
 
                 client = EvohomeClient(
-                    settings["username"],
-                    settings["password"],
+                    settings.username,
+                    settings.password,
                     refresh_token=refresh_token,
                     access_token=access_token,
                     access_token_expires=access_token_expires,
                 )
 
-                token_data_json = json.dumps({
+                token = {
                     "access_token": client.access_token,
                     "access_token_expires_unixtime": client.access_token_expires.timestamp(),
-                    "refresh_token": client.refresh_token
-                }).encode("utf-8")
-                zk.set(token_path, token_data_json)
+                    "refresh_token": client.refresh_token,
+                }
+                zk.set_token(token)
 
             return client
         except Exception as e:
@@ -152,31 +123,27 @@ def initialise_evohome(settings, zk):
             sys.exit(99)
 
 
-def initialise_zookeeper(settings):
-    zk = KazooClient(hosts=settings["zk_service"])
-    zk.start()
-    zk.ensure_path(ZK_SCHEDULES_PATH)
-    return zk
+def initialise_zookeeper(settings: EvohomeSettings):
+    return EvohomeZookeeper(hosts=settings.zk_service)
 
 
-def cleanup_zookeeper(zk, client):
-    stored_zone_ids = set(zk.get_children(ZK_SCHEDULES_PATH))
-    client_zone_ids = {client_zone.zoneId for client_zone in client._get_single_heating_system()._zones}
-    to_delete = stored_zone_ids - client_zone_ids
-    for zone_id in to_delete:
-        zk.delete(f"{ZK_SCHEDULES_PATH}/{zone_id}")
+def cleanup_zookeeper(zk: EvohomeZookeeper, client):
+    zk.cleanup_schedule_zones(
+        [
+            client_zone.zoneId
+            for client_zone in client._get_single_heating_system()._zones
+        ]
+    )
 
 
 def initialise_metrics(settings):
     metrics_list = [
         prom.Gauge(name="evohome_up", documentation="Evohome status"),
         prom.Gauge(
-            name="evohome_tcs_active_faults",
-            documentation="Evohome active faults",
+            name="evohome_tcs_active_faults", documentation="Evohome active faults"
         ),
         prom.Gauge(
-            name="evohome_tcs_permanent",
-            documentation="Evohome permanent state",
+            name="evohome_tcs_permanent", documentation="Evohome permanent state"
         ),
         prom.Enum(
             name="evohome_tcs_mode",
@@ -199,11 +166,7 @@ def initialise_metrics(settings):
         prom.Enum(
             name="evohome_zone_mode",
             documentation="Evohome zone mode",
-            states=[
-                "FollowSchedule",
-                "TemporaryOverride",
-                "PermanentOverride",
-            ],
+            states=["FollowSchedule", "TemporaryOverride", "PermanentOverride"],
             labelnames=["zone_id", "zone_name"],
         ),
         prom.Gauge(
@@ -212,12 +175,10 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
-        prom.Gauge(
-            name="evohome_last_update", documentation="Evohome last update"
-        ),
+        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
     ]
 
-    prom.start_http_server(settings["scrape_port"])
+    prom.start_http_server(settings.scrape_port)
 
     return {m._name.removeprefix("evohome_"): m for m in metrics_list}
 
@@ -235,9 +196,7 @@ def get_evohome_data(client, zk):
     tcs.location.status()
     data = {"tcs": tcs, "schedules": get_schedules(client, zk)}
     logging.debug("Retrieved data:")
-    logging.debug(
-        f"System location: {tcs.location.city}, {tcs.location.country}"
-    )
+    logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
     logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
     logging.debug(f"System model type: {tcs.modelType}")
     return data
@@ -275,47 +234,37 @@ def set_prom_metrics_zone_up(metrics, zone):
 
 
 def set_metric(metric, zone, temperature, setpoint_type):
-    metric.labels(
-        zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_type
-    ).set(temperature)
-    logging.debug(
-        f"Zone {zone.name} {setpoint_type} temperature: {temperature}"
+    metric.labels(zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_type).set(
+        temperature
     )
+    logging.debug(f"Zone {zone.name} {setpoint_type} temperature: {temperature}")
 
 
 def set_prom_metrics_zone_target_temperature(metrics, data, zone):
     zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
-    set_metric(
-        metrics["temperature_celcius"], zone, zone_target_temperature, "target"
-    )
+    set_metric(metrics["temperature_celcius"], zone, zone_target_temperature, "target")
 
 
 def set_prom_metrics_zone_planned_temperature(metrics, data, zone):
     schedule = data["schedules"][zone.zoneId]
     zone_planned_temperature = calculate_planned_temperature(schedule)
     set_metric(
-        metrics["temperature_celcius"],
-        zone,
-        zone_planned_temperature,
-        "planned",
+        metrics["temperature_celcius"], zone, zone_planned_temperature, "planned"
     )
 
 
 def set_prom_metrics_zone_setpoint_mode(metrics, zone):
     zone_setpoint_mode = zone.setpointStatus["setpointMode"]
-    metrics["zone_mode"].labels(
-        zone_id=zone.zoneId, zone_name=zone.name
-    ).state(zone_setpoint_mode)
+    metrics["zone_mode"].labels(zone_id=zone.zoneId, zone_name=zone.name).state(
+        zone_setpoint_mode
+    )
     logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
 
 
 def set_prom_metrics_zone_measured_temperature(metrics, zone):
     zone_measured_temperature = zone.temperatureStatus["temperature"]
     set_metric(
-        metrics["temperature_celcius"],
-        zone,
-        zone_measured_temperature,
-        "measured",
+        metrics["temperature_celcius"], zone, zone_measured_temperature, "measured"
     )
 
 
@@ -358,7 +307,7 @@ def main():
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
 
-        time.sleep(settings["poll_interval"] * gauss(1, 0.2))
+        time.sleep(settings.poll_interval * gauss(1, 0.2))
 
 
 if __name__ == "__main__":
