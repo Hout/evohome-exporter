@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evohome-settings
+  namespace: evohome
+  labels:
+    app: evohome-exporter
+data:
+  EVOHOME_ZK_SERVICE: zk-cs.default
+  EVOHOME_EXPIRY: 45
