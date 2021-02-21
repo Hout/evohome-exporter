@@ -18,13 +18,17 @@ class EvohomeSettings:
         try:
             self._username = environ[USERNAME_ENV_VAR].strip()
         except KeyError:
-            logging.error(f"Environment variable ({USERNAME_ENV_VAR}) for Evohome username missing")
+            logging.error(
+                f"Environment variable ({USERNAME_ENV_VAR}) for Evohome username missing"
+            )
             exit(1)
 
         try:
             self._password = environ[PASSWORD_ENV_VAR].strip()
         except KeyError:
-            logging.error(f"Environment variable ({PASSWORD_ENV_VAR}) for Evohome password missing")
+            logging.error(
+                f"Environment variable ({PASSWORD_ENV_VAR}) for Evohome password missing"
+            )
             exit(1)
 
         self._poll_interval = int(environ.get(POLL_INTERVAL_ENV_VAR, 60))
@@ -47,9 +51,8 @@ class EvohomeSettings:
         )
 
     @property
-    def username(self) -> Optional[str]:
-        if self._username:
-            return self._username
+    def username(self) -> str:
+        return self._username
 
     @username.setter
     def username(self, username: str) -> None:
@@ -64,7 +67,7 @@ class EvohomeSettings:
         self._password = password
 
     @property
-    def poll_interval(self) -> Optional[int]:
+    def poll_interval(self) -> int:
         return self._poll_interval
 
     @poll_interval.setter
@@ -72,7 +75,7 @@ class EvohomeSettings:
         self._poll_interval = poll_interval
 
     @property
-    def scrape_port(self) -> Optional[int]:
+    def scrape_port(self) -> int:
         return self._scrape_port
 
     @scrape_port.setter
@@ -80,7 +83,7 @@ class EvohomeSettings:
         self._scrape_port = scrape_port
 
     @property
-    def expiry(self) -> Optional[int]:
+    def expiry(self) -> int:
         return self._expiry
 
     @expiry.setter
@@ -88,7 +91,7 @@ class EvohomeSettings:
         self._expiry = expiry
 
     @property
-    def zk_service(self) -> Optional[str]:
+    def zk_service(self) -> str:
         return self._zk_service
 
     @zk_service.setter
