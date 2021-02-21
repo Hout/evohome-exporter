@@ -10,7 +10,7 @@ from evohomeclient2 import EvohomeClient
 
 from evohome_zookeeper import EvohomeZookeeper
 from evohome_settings import EvohomeSettings
-from evohome_types import Schedules, Temperatures
+from evohome_types import Schedules
 
 
 logging.root.setLevel(logging.DEBUG)
