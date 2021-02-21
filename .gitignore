@@ -106,3 +106,4 @@ Pipfile*
 # output
 *.out
 secret-evohome.yaml
+b.sh

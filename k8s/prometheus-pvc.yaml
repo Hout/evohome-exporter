@@ -2,10 +2,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: persisted
+  namespace: monitoring
 spec:
   storage:
     volumeClaimTemplate:
+      kind: "PersistentVolumeClaim"
       spec:
+        accessModes:
+          - ReadWriteOnce
         storageClassName: microk8s-hostpath
         resources:
           requests:
