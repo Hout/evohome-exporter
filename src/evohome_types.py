@@ -4,3 +4,4 @@ Token = Dict[str, Any]
 
 Schedules = Dict[str, Any]
 ZoneSchedule = List[Dict[str, Any]]
+Temperatures = Dict[str, Any]

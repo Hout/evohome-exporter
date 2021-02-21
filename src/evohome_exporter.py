@@ -10,12 +10,12 @@ from evohomeclient2 import EvohomeClient
 
 from evohome_zookeeper import EvohomeZookeeper
 from evohome_settings import EvohomeSettings
-from evohome_types import Schedules
+from evohome_types import Schedules, Temperatures
 
 
-logging.root.setLevel(logging.INFO)
+logging.root.setLevel(logging.DEBUG)
 logging.root.handlers[0].setFormatter(
-    logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
+    logging.Formatter("(unknown ) %(asctime)s %(levelname)-8s %(message)s")
 )
 
 
@@ -54,20 +54,20 @@ def calculate_planned_temperature(zone_schedule) -> float:
     return setpoint
 
 
-def get_schedules(client, zk: EvohomeZookeeper) -> Schedules:
+def get_schedules(evohome_client, zookeeper_client: EvohomeZookeeper) -> Schedules:
     schedules: Schedules = {}
 
-    for zone in client._get_single_heating_system()._zones:
+    for zone in evohome_client._get_single_heating_system()._zones:
         zone_id = zone.zoneId
         try:
-            schedule = zk.get_schedule(zone_id)
+            schedule = zookeeper_client.get_schedule(zone_id)
             if not schedule:
                 schedule = zone.schedule()
-                zk.set_schedule(zone_id, schedule)
+                zookeeper_client.set_schedule(zone_id, schedule)
         except Exception as e:
-            logging.warn(f"Exception on getting schedule from ZK: {e}")
+            logging.warn(f"Exception on getting schedule from zookeeper_client: {e}")
             schedule = zone.schedule()
-            zk.set_schedule(zone_id, schedule)
+            zookeeper_client.set_schedule(zone_id, schedule)
         schedules[zone_id] = schedule
 
     return schedules
@@ -79,25 +79,27 @@ def initialise_settings() -> EvohomeSettings:
     return settings
 
 
-def initialise_evohome(settings: EvohomeSettings, zk: EvohomeZookeeper):
-    client = None
+def initialise_evohome(settings: EvohomeSettings, zookeeper_client: EvohomeZookeeper):
+    evohome_client = None
     while True:
         try:
-            with zk.lock_token():
+            with zookeeper_client.lock_token():
                 try:
-                    token = zk.get_token()
+                    token = zookeeper_client.get_token()
                     access_token = token["access_token"]
                     access_token_expires = dt.datetime.fromtimestamp(
                         token["access_token_expires_unixtime"]
                     )
                     refresh_token = token["refresh_token"]
                 except Exception as e:
-                    logging.warn(f"Exception on loading access tokens from ZK: {e}")
+                    logging.warn(
+                        f"Exception on loading access tokens from zookeeper_client: {e}"
+                    )
                     access_token = None
                     access_token_expires = None
                     refresh_token = None
 
-                client = EvohomeClient(
+                evohome_client = EvohomeClient(
                     settings.username,
                     settings.password,
                     refresh_token=refresh_token,
@@ -106,32 +108,36 @@ def initialise_evohome(settings: EvohomeSettings, zk: EvohomeZookeeper):
                 )
 
                 token = {
-                    "access_token": client.access_token,
-                    "access_token_expires_unixtime": client.access_token_expires.timestamp(),
-                    "refresh_token": client.refresh_token,
+                    "access_token": evohome_client.access_token,
+                    "access_token_expires_unixtime": evohome_client.access_token_expires.timestamp(),
+                    "refresh_token": evohome_client.refresh_token,
                 }
-                zk.set_token(token)
+                zookeeper_client.set_token(token)
 
-            return client
+            return evohome_client
         except Exception as e:
             if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
                 logging.warning(f": {e}")
                 time.sleep(gauss(30, 3))
                 continue
 
-            logging.critical(f"Can't create Evohome client: {e}")
+            logging.critical(f"Can't create Evohome evohome_client: {e}")
             sys.exit(99)
 
 
 def initialise_zookeeper(settings: EvohomeSettings):
-    return EvohomeZookeeper(hosts=settings.zk_service)
+    zk = EvohomeZookeeper(hosts=settings.zk_service)
+    logging.root.handlers[0].setFormatter(
+        logging.Formatter(f"{zk._client_id} %(asctime)s %(levelname)-8s %(message)s")
+    )
+    return zk
 
 
-def cleanup_zookeeper(zk: EvohomeZookeeper, client):
-    zk.cleanup_schedule_zones(
+def cleanup_zookeeper(zookeeper_client: EvohomeZookeeper, evohome_client):
+    zookeeper_client.cleanup_schedule_zones(
         [
             client_zone.zoneId
-            for client_zone in client._get_single_heating_system()._zones
+            for client_zone in evohome_client._get_single_heating_system()._zones
         ]
     )
 
@@ -194,11 +200,10 @@ REQUEST_TIME = prom.Summary(
 def get_evohome_data(client, zk):
     tcs = client._get_single_heating_system()
     tcs.location.status()
-    data = {"tcs": tcs, "schedules": get_schedules(client, zk)}
+    data = {"temperatures": tcs, "schedules": get_schedules(client, zk)}
     logging.debug("Retrieved data:")
-    logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
-    logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
-    logging.debug(f"System model type: {tcs.modelType}")
+    logging.debug(tcs.location)
+    logging.debug(tcs.zones)
     return data
 
 
@@ -209,7 +214,7 @@ def set_prom_metrics(metrics, data):
     set_prom_metrics_system_mode(metrics, system_mode_status)
     set_prom_metrics_active_faults(metrics, data)
 
-    for zone in data["tcs"].zones.values():
+    for zone in data["temperatures"].zones.values():
         if not set_prom_metrics_zone_up(metrics, zone):
             continue
         set_prom_metrics_zone_setpoint_mode(metrics, zone)
@@ -291,11 +296,11 @@ def set_prom_metrics_mode_status(metrics, data):
 
 def main():
     settings = initialise_settings()
-    zk = initialise_zookeeper(settings)
-    client = initialise_evohome(settings, zk)
+    zookeeper_client = initialise_zookeeper(settings)
+    evohome_client = initialise_evohome(settings, zookeeper_client)
     metrics = initialise_metrics(settings)
 
-    cleanup_zookeeper(zk, client)
+    cleanup_zookeeper(zookeeper_client, evohome_client)
 
     # write readiness file
     open("/tmp/ready", "x").close()
@@ -306,7 +311,7 @@ def main():
         logging.debug(
             f"Current time {time.strftime('%H:%M:%S', time.localtime(current_timestamp))}"
         )
-        party_size, party_position = zk.party_data()
+        party_size, party_position = zookeeper_client.party_data()
         logging.debug(f"Party size {party_size}")
         logging.debug(f"Party position {party_position}")
         cycle_duration = settings.poll_interval * party_size
@@ -335,7 +340,7 @@ def main():
 
         try:
             logging.info("Woken up; getting data from evohome & set metrics")
-            data = get_evohome_data(client, zk)
+            data = get_evohome_data(evohome_client, zookeeper_client)
             set_prom_metrics(metrics, data)
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
