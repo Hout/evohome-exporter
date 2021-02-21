@@ -5,7 +5,7 @@ import uuid
 from typing import Optional, Any, List
 
 from kazoo.client import KazooClient
-from kazoo.recipe.party import Party
+from kazoo.recipe.party import ShallowParty
 
 from evohome_types import ZoneSchedule, Token
 
@@ -21,21 +21,19 @@ ZK_TOKEN_PATH = f"{ZK_BASE_PATH}/{ZK_TOKEN_NODE}"
 
 class EvohomeZookeeper:
     def __init__(self, hosts):
+        self.client_id = str(uuid.uuid4())
+        self.logger = logging.getLogger(f"{__name__}-{self.client_id}")
         self.zk = KazooClient(hosts=hosts)
         self.zk.start()
         self.zk.ensure_path(ZK_BASE_PATH)
         self.zk.ensure_path(ZK_PARTY_PATH)
         self.zk.ensure_path(ZK_SCHEDULES_PATH)
-        self.client_id = uuid.uuid4()
-        self.party = Party(self.zk, ZK_PARTY_PATH, identifier=self.client_id)
+        self.party = ShallowParty(self.zk, ZK_PARTY_PATH, identifier=self.client_id)
         self.party.join()
 
-    def party_size(self):
-        return len(self.party)
-
-    def party_position(self):
-        sorted_nodes = sorted(list(self.party))
-        return sorted_nodes.index(self.client_id)
+    def party_data(self):
+        party = sorted(list(self.party))
+        return len(party), party.index(self.client_id)
 
     def lock_token(self) -> Any:
         return self.zk.Lock(ZK_BASE_PATH, ZK_LOCK_NODE)
@@ -53,11 +51,15 @@ class EvohomeZookeeper:
             self.zk.delete(f"{ZK_SCHEDULES_PATH}/{zone_id}")
 
     def get_schedule(
-        self, zone_id: str, timeout: float = 1.0 / 24
+        self, zone_id: str, timeout: int = 3600
     ) -> Optional[ZoneSchedule]:
         data, stat = self.zk.get(f"{ZK_SCHEDULES_PATH}/{zone_id}")
-        if stat.last_modified < time.time() - timeout:
-            logging.info("Stored schedule is stale")
+        self.logger.debug(f"Last modified {stat.last_modified}")
+        self.logger.debug(f"Time {int(time.time())}")
+        self.logger.debug(f"Timeout {timeout}")
+        self.logger.debug(f"Time - timeout {int(time.time()) - timeout}")
+        if stat.last_modified < int(time.time()) - timeout:
+            self.logger.info("Stored schedule is stale")
             return None
         return json.loads(data.decode("utf-8"))
 

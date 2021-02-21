@@ -13,7 +13,7 @@ from evohome_settings import EvohomeSettings
 from evohome_types import Schedules
 
 
-logging.root.setLevel(logging.DEBUG)
+logging.root.setLevel(logging.INFO)
 logging.root.handlers[0].setFormatter(
     logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
 )
@@ -50,7 +50,7 @@ def calculate_planned_temperature(zone_schedule) -> float:
     yesterday = dt.datetime.today() - dt.timedelta(days=-1)
     yesterday_weekday = yesterday.weekday()
     setpoint = get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
-    assert(setpoint)
+    assert setpoint
     return setpoint
 
 
@@ -301,13 +301,44 @@ def main():
     open("/tmp/ready", "x").close()
 
     while True:
+        # wait until its our time
+        current_timestamp = int(time.time())
+        logging.debug(
+            f"Current time {time.strftime('%H:%M:%S', time.localtime(current_timestamp))}"
+        )
+        party_size, party_position = zk.party_data()
+        logging.debug(f"Party size {party_size}")
+        logging.debug(f"Party position {party_position}")
+        cycle_duration = settings.poll_interval * party_size
+        logging.debug(f"Cycle duration {cycle_duration}")
+        my_offset = party_position * settings.poll_interval
+        logging.debug(f"My offset {my_offset}")
+        current_cycle_offset = current_timestamp % cycle_duration
+        logging.debug(f"Current cycle offset {current_cycle_offset}")
+        current_cycle_start = current_timestamp - current_cycle_offset
+        logging.debug(f"Current cycle start {current_cycle_start}")
+        current_poll_timestamp = current_cycle_start + my_offset
+        logging.debug(f"Current poll timestamp {current_poll_timestamp}")
+        next_poll_timestamp = (
+            current_poll_timestamp
+            if current_poll_timestamp > current_timestamp
+            else current_poll_timestamp + cycle_duration
+        )
+        logging.debug(f"Next poll timestamp {next_poll_timestamp}")
+        wait_time_seconds = next_poll_timestamp - current_timestamp
+        logging.debug(f"Wait time {wait_time_seconds}")
+
+        logging.info(
+            f"Sleeping until {time.strftime('%H:%M:%S', time.localtime(next_poll_timestamp))}"
+        )
+        time.sleep(wait_time_seconds)
+
         try:
+            logging.info("Woken up; getting data from evohome & set metrics")
             data = get_evohome_data(client, zk)
             set_prom_metrics(metrics, data)
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
-
-        time.sleep(settings.poll_interval * gauss(1, 0.2))
 
 
 if __name__ == "__main__":
