@@ -109,3 +109,6 @@ secret-evohome.yaml
 
 # vscode
 .vscode/
+
+# own scripts
+b.sh

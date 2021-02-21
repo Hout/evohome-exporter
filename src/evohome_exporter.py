@@ -2,26 +2,25 @@ import datetime as dt
 import logging
 import sys
 import time
-from os import environ
+from typing import Dict, Any, Optional
 
 import prometheus_client as prom
 from evohomeclient2 import EvohomeClient
+
+from evohome_settings import EvohomeSettings
+
 
 logging.root.setLevel(logging.DEBUG)
 logging.root.handlers[0].setFormatter(
     logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
 )
 
-USERNAME_ENV_VAR = "EVOHOME_USERNAME"
-PASSWORD_ENV_VAR = "EVOHOME_PASSWORD"
-POLL_INTERVAL_ENV_VAR = "EVOHOME_POLL_INTERVAL"
-SCRAPE_PORT_ENV_VAR = "EVOHOME_SCRAPE_PORT"
 
-
-def get_set_point(zone_schedule, day_of_week, spot_time):
+def get_set_point(
+    zone_schedule: Dict[str, Any], day_of_week: int, spot_time: dt.time
+) -> Optional[float]:
     daily_schedules = {
-        s["DayOfWeek"]: s["Switchpoints"]
-        for s in zone_schedule["DailySchedules"]
+        s["DayOfWeek"]: s["Switchpoints"] for s in zone_schedule["DailySchedules"]
     }
     switch_points = {
         dt.time.fromisoformat(s["TimeOfDay"]): s["heatSetpoint"]
@@ -36,7 +35,7 @@ def get_set_point(zone_schedule, day_of_week, spot_time):
     return switch_points[candidate_time]
 
 
-def calculate_planned_temperature(zone_schedule):
+def calculate_planned_temperature(zone_schedule: Dict[str, Any]) -> float:
     current_time = dt.datetime.now().time()
     day_of_week = dt.datetime.today().weekday()
     setpoint = get_set_point(zone_schedule, day_of_week, current_time)
@@ -46,7 +45,9 @@ def calculate_planned_temperature(zone_schedule):
     # get last setpoint from yesterday
     yesterday = dt.datetime.today() - dt.timedelta(days=-1)
     yesterday_weekday = yesterday.weekday()
-    return get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
+    setpoint = get_set_point(zone_schedule, yesterday_weekday, dt.time.max)
+    assert setpoint
+    return setpoint
 
 
 schedules_updated = dt.datetime.min
@@ -67,33 +68,10 @@ def get_schedules(client):
     return schedules
 
 
-def initialise_settings():
-    logging.info("Evohome exporter for Prometheus")
-    settings = {}
-    try:
-        settings["username"] = environ[USERNAME_ENV_VAR].strip()
-        settings["password"] = environ[PASSWORD_ENV_VAR].strip()
-    except KeyError:
-        logging.error("Missing environment variables for Evohome credentials:")
-        logging.error(f"\t{USERNAME_ENV_VAR} - Evohome username")
-        logging.error(f"\t{PASSWORD_ENV_VAR} - Evohome password")
-        exit(1)
-
-    settings["poll_interval"] = int(environ.get(POLL_INTERVAL_ENV_VAR, 60))
-    settings["scrape_port"] = int(environ.get(SCRAPE_PORT_ENV_VAR, 8082))
-
-    logging.info("Evohome exporter settings:")
-    logging.info(f"Username: {settings['username']}")
-    logging.info(f"Poll interval: {settings['poll_interval']} seconds")
-    logging.info(f"Scrape port: {settings['scrape_port']}")
-
-    return settings
-
-
 def initialise_evohome(settings):
     while True:
         try:
-            return EvohomeClient(settings["username"], settings["password"])
+            return EvohomeClient(settings.username, settings.password)
         except Exception as e:
             if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
                 logging.warning(f": {e}")
@@ -149,12 +127,10 @@ def initialise_metrics(settings):
             unit="celcius",
             labelnames=["zone_id", "zone_name", "type"],
         ),
-        prom.Gauge(
-            name="evohome_last_update", documentation="Evohome last update"
-        ),
+        prom.Gauge(name="evohome_last_update", documentation="Evohome last update"),
     ]
 
-    prom.start_http_server(settings["scrape_port"])
+    prom.start_http_server(settings.scrape_port)
 
     return {m._name.removeprefix("evohome_"): m for m in metrics_list}
 
@@ -172,9 +148,7 @@ def get_evohome_data(client):
     tcs.location.status()
     data = {"tcs": tcs, "schedules": get_schedules(client)}
     logging.debug("Retrieved data:")
-    logging.debug(
-        f"System location: {tcs.location.city}, {tcs.location.country}"
-    )
+    logging.debug(f"System location: {tcs.location.city}, {tcs.location.country}")
     logging.debug(f"System time zone: {tcs.location.timeZone['displayName']}")
     logging.debug(f"System model type: {tcs.modelType}")
     return data
@@ -212,19 +186,15 @@ def set_prom_metrics_zone_up(metrics, zone):
 
 
 def set_metric(metric, zone, temperature, setpoint_type):
-    metric.labels(
-        zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_type
-    ).set(temperature)
-    logging.debug(
-        f"Zone {zone.name} {setpoint_type} temperature: {temperature}"
+    metric.labels(zone_id=zone.zoneId, zone_name=zone.name, type=setpoint_type).set(
+        temperature
     )
+    logging.debug(f"Zone {zone.name} {setpoint_type} temperature: {temperature}")
 
 
 def set_prom_metrics_zone_target_temperature(metrics, data, zone):
     zone_target_temperature = zone.setpointStatus["targetHeatTemperature"]
-    set_metric(
-        metrics["temperature_celcius"], zone, zone_target_temperature, "target"
-    )
+    set_metric(metrics["temperature_celcius"], zone, zone_target_temperature, "target")
 
 
 def set_prom_metrics_zone_planned_temperature(metrics, data, zone):
@@ -240,9 +210,9 @@ def set_prom_metrics_zone_planned_temperature(metrics, data, zone):
 
 def set_prom_metrics_zone_setpoint_mode(metrics, zone):
     zone_setpoint_mode = zone.setpointStatus["setpointMode"]
-    metrics["zone_mode"].labels(
-        zone_id=zone.zoneId, zone_name=zone.name
-    ).state(zone_setpoint_mode)
+    metrics["zone_mode"].labels(zone_id=zone.zoneId, zone_name=zone.name).state(
+        zone_setpoint_mode
+    )
     logging.debug(f"Zone {zone.name} setpoint mode: {zone_setpoint_mode}")
 
 
@@ -278,9 +248,12 @@ def set_prom_metrics_mode_status(metrics, data):
 
 
 def main():
-    settings = initialise_settings()
+    settings = EvohomeSettings()
     client = initialise_evohome(settings)
     metrics = initialise_metrics(settings)
+
+    # write readiness file
+    open("/tmp/ready", "x").close()
 
     while True:
         try:
@@ -289,7 +262,7 @@ def main():
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
 
-        time.sleep(settings["poll_interval"])
+        time.sleep(settings.poll_interval)
 
 
 if __name__ == "__main__":
