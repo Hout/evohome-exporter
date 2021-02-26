@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1613927425422,
+  "iteration": 1613979423301,
   "links": [],
   "panels": [
     {
@@ -90,7 +90,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "scrape_duration_seconds{job=\"evohome-svc\"} > bool 0",
+          "expr": "time()-evohome_last_update < bool 300",
           "interval": "",
           "legendFormat": "{{pod}}",
           "refId": "A"
@@ -130,98 +130,6 @@
           "max": null,
           "min": null,
           "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 8,
-        "y": 1
-      },
-      "hiddenSeries": false,
-      "id": 19,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "percentage": false,
-      "pluginVersion": "7.1.0",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "time()-evohome_last_update < 24*60*60",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Last scrape",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
         }
       ],
       "yaxis": {
@@ -353,7 +261,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -431,7 +339,7 @@
         "y": 7
       },
       "hiddenSeries": false,
-      "id": 11,
+      "id": 20,
       "legend": {
         "avg": false,
         "current": false,
@@ -452,7 +360,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -599,7 +507,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 12,
+      "id": 21,
       "legend": {
         "avg": false,
         "current": false,
@@ -620,7 +528,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -767,7 +675,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 13,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -788,7 +696,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -935,7 +843,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 14,
+      "id": 23,
       "legend": {
         "avg": false,
         "current": false,
@@ -956,7 +864,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1103,7 +1011,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 15,
+      "id": 24,
       "legend": {
         "avg": false,
         "current": false,
@@ -1124,7 +1032,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1271,7 +1179,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 16,
+      "id": 25,
       "legend": {
         "avg": false,
         "current": false,
@@ -1292,7 +1200,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1439,7 +1347,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 17,
+      "id": 26,
       "legend": {
         "avg": false,
         "current": false,
@@ -1460,7 +1368,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1613979423301,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1623,7 +1531,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
