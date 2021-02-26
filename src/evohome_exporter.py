@@ -3,11 +3,15 @@ import logging
 import sys
 import time
 from typing import Dict, Any, Optional
+import os
 
 import prometheus_client as prom
 from evohomeclient2 import EvohomeClient
 
 from evohome_settings import EvohomeSettings
+
+READINESS_FILE = "/tmp/ready"
+STOP_FILE = "/tmp/stop"
 
 
 logging.root.setLevel(logging.DEBUG)
@@ -73,10 +77,14 @@ def initialise_evohome(settings):
         try:
             return EvohomeClient(settings.username, settings.password)
         except Exception as e:
-            if len(e.args) > 0 and "attempt_limit_exceeded" in e.args[0]:
-                logging.warning(f": {e}")
-                time.sleep(30)
-                continue
+            if len(e.args) > 0:
+                if (
+                    "attempt_limit_exceeded" in e.args[0]
+                    or "Service Unavailable" in e.args[0]
+                ):
+                    logging.error(f"{e.args[0]} - retrying in 30 seconds")
+                    time.sleep(30)
+                    continue
 
             logging.critical(f"Can't create Evohome client: {e}")
             sys.exit(99)
@@ -86,12 +94,10 @@ def initialise_metrics(settings):
     metrics_list = [
         prom.Gauge(name="evohome_up", documentation="Evohome status"),
         prom.Gauge(
-            name="evohome_tcs_active_faults",
-            documentation="Evohome active faults",
+            name="evohome_tcs_active_faults", documentation="Evohome active faults"
         ),
         prom.Gauge(
-            name="evohome_tcs_permanent",
-            documentation="Evohome permanent state",
+            name="evohome_tcs_permanent", documentation="Evohome permanent state"
         ),
         prom.Enum(
             name="evohome_tcs_mode",
@@ -114,11 +120,7 @@ def initialise_metrics(settings):
         prom.Enum(
             name="evohome_zone_mode",
             documentation="Evohome zone mode",
-            states=[
-                "FollowSchedule",
-                "TemporaryOverride",
-                "PermanentOverride",
-            ],
+            states=["FollowSchedule", "TemporaryOverride", "PermanentOverride"],
             labelnames=["zone_id", "zone_name"],
         ),
         prom.Gauge(
@@ -201,10 +203,7 @@ def set_prom_metrics_zone_planned_temperature(metrics, data, zone):
     schedule = data["schedules"][zone.zoneId]
     zone_planned_temperature = calculate_planned_temperature(schedule)
     set_metric(
-        metrics["temperature_celcius"],
-        zone,
-        zone_planned_temperature,
-        "planned",
+        metrics["temperature_celcius"], zone, zone_planned_temperature, "planned"
     )
 
 
@@ -219,10 +218,7 @@ def set_prom_metrics_zone_setpoint_mode(metrics, zone):
 def set_prom_metrics_zone_measured_temperature(metrics, zone):
     zone_measured_temperature = zone.temperatureStatus["temperature"]
     set_metric(
-        metrics["temperature_celcius"],
-        zone,
-        zone_measured_temperature,
-        "measured",
+        metrics["temperature_celcius"], zone, zone_measured_temperature, "measured"
     )
 
 
@@ -247,22 +243,44 @@ def set_prom_metrics_mode_status(metrics, data):
     return system_mode_status
 
 
+def set_ready(flag: bool) -> None:
+    if os.path.exists(READINESS_FILE) != flag:
+        logging.warning(f"Set ready flag to {flag}")
+        if flag:
+            open(READINESS_FILE, "w").close()
+        else:
+            os.remove(READINESS_FILE)
+
+
+def stop_check():
+    if os.path.exists(STOP_FILE):
+        logging.warning("Stop file detected, finishing program")
+        set_ready(False)
+        sys.exit(0)
+
+
 def main():
     settings = EvohomeSettings()
     client = initialise_evohome(settings)
     metrics = initialise_metrics(settings)
 
-    # write readiness file
-    open("/tmp/ready", "x").close()
-
     while True:
         try:
             data = get_evohome_data(client)
             set_prom_metrics(metrics, data)
+            set_ready(True)
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
+            set_ready(False)
 
-        time.sleep(settings.poll_interval)
+        # do this in a loop so we can stop when necessary
+        sleep_until = time.time() + settings.poll_interval
+        logging.debug(
+            f"Waiting until {time.strftime('%H:%M:%S', time.localtime(sleep_until))} for the next check"
+        )
+        while time.time() < sleep_until:
+            stop_check()
+            time.sleep(1)
 
 
 if __name__ == "__main__":

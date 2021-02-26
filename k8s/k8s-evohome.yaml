@@ -84,9 +84,11 @@ spec:
             failureThreshold: 10
           readinessProbe:
             exec:
-              command:
-                - cat
-                - /tmp/ready
+                command: ["cat", "/tmp/ready"]
+          lifecycle:
+            preStop:
+              exec:
+                command: ["touch", "/tmp/stop"]
           volumeMounts:
             - name: tz
               mountPath: /etc/localtime
