@@ -4,9 +4,10 @@ metadata:
   name: persisted
   namespace: monitoring
 spec:
+  retention: 30d
   storage:
     volumeClaimTemplate:
-      kind: "PersistentVolumeClaim"
+      # kind: "PersistentVolumeClaim"
       spec:
         accessModes:
           - ReadWriteOnce
@@ -14,3 +15,6 @@ spec:
         resources:
           requests:
             storage: 1Gi
+      selector:
+        matchLabels:
+          app: prometheus
