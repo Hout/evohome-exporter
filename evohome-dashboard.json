@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1613927425422,
+  "iteration": 1614325631359,
   "links": [],
   "panels": [
     {
@@ -353,7 +353,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -391,8 +391,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -431,7 +431,7 @@
         "y": 7
       },
       "hiddenSeries": false,
-      "id": 11,
+      "id": 20,
       "legend": {
         "avg": false,
         "current": false,
@@ -452,7 +452,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -521,7 +521,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -559,8 +559,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -599,7 +599,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 12,
+      "id": 21,
       "legend": {
         "avg": false,
         "current": false,
@@ -620,7 +620,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -689,7 +689,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -727,8 +727,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -767,7 +767,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 13,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -788,7 +788,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -857,7 +857,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -895,8 +895,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -935,7 +935,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 14,
+      "id": 23,
       "legend": {
         "avg": false,
         "current": false,
@@ -956,7 +956,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1025,7 +1025,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1063,8 +1063,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1103,7 +1103,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 15,
+      "id": 24,
       "legend": {
         "avg": false,
         "current": false,
@@ -1124,7 +1124,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1193,7 +1193,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1231,8 +1231,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1271,7 +1271,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 16,
+      "id": 25,
       "legend": {
         "avg": false,
         "current": false,
@@ -1292,7 +1292,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1361,7 +1361,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1399,8 +1399,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1439,7 +1439,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 17,
+      "id": 26,
       "legend": {
         "avg": false,
         "current": false,
@@ -1460,7 +1460,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613927425422,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1529,7 +1529,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1567,8 +1567,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1623,7 +1623,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -1638,5 +1638,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 3
+  "version": 7
 }
