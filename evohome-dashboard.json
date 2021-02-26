@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1613979423301,
+  "iteration": 1614325631359,
   "links": [],
   "panels": [
     {
@@ -299,8 +299,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -360,7 +360,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -429,7 +429,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -467,8 +467,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -528,7 +528,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -597,7 +597,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -635,8 +635,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -696,7 +696,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -765,7 +765,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -803,8 +803,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -864,7 +864,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -933,7 +933,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -971,8 +971,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1032,7 +1032,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1101,7 +1101,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1139,8 +1139,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1200,7 +1200,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1269,7 +1269,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1307,8 +1307,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1368,7 +1368,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1613979423301,
+      "repeatIteration": 1614325631359,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1437,7 +1437,7 @@
           "refId": "D"
         },
         {
-          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
           "hide": false,
           "interval": "1m",
           "legendFormat": "off",
@@ -1475,8 +1475,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "25",
-          "min": "10",
+          "max": "23",
+          "min": "12",
           "show": true
         },
         {
@@ -1546,5 +1546,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 3
+  "version": 7
 }
