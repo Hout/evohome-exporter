@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1614439177894,
+  "iteration": 1614441352701,
   "links": [],
   "panels": [
     {
@@ -66,7 +66,7 @@
         "y": 1
       },
       "hiddenSeries": false,
-      "id": 2,
+      "id": 35,
       "legend": {
         "avg": true,
         "current": true,
@@ -84,23 +84,36 @@
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [],
+      "seriesOverrides": [
+        {
+          "alias": "down",
+          "color": "#F2495C",
+          "fillBelowTo": "evohome-deploy-7bd78fcf4b-85vfh",
+          "lines": false
+        }
+      ],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "time() - evohome_last_update < bool 300",
+          "expr": "avg_over_time((time() - evohome_last_update < bool 180)[1d:1m])",
           "interval": "",
           "legendFormat": "{{pod}}",
           "refId": "A"
+        },
+        {
+          "expr": "(time() - evohome_last_update >= bool 180) == 1",
+          "interval": "",
+          "legendFormat": "down",
+          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "UP",
+      "title": "Uptime evohome service [24h]",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -116,8 +129,9 @@
       },
       "yaxes": [
         {
-          "format": "short",
-          "label": null,
+          "decimals": null,
+          "format": "percentunit",
+          "label": "",
           "logBase": 1,
           "max": null,
           "min": null,
@@ -466,7 +480,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -634,7 +648,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -802,7 +816,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -970,7 +984,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1138,7 +1152,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1306,7 +1320,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1474,7 +1488,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614439177894,
+      "repeatIteration": 1614441352701,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1637,7 +1651,7 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -1652,5 +1666,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 11
+  "version": 14
 }
