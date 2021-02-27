@@ -89,6 +89,7 @@
           "alias": "down",
           "color": "#F2495C",
           "fillBelowTo": "evohome-deploy-7bd78fcf4b-85vfh",
+          "legend": false,
           "lines": false
         }
       ],
@@ -1666,5 +1667,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 14
+  "version": 15
 }
