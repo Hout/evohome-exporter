@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1614327168996,
+  "iteration": 1614439177894,
   "links": [],
   "panels": [
     {
@@ -61,7 +61,7 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 1
       },
@@ -90,7 +90,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "scrape_duration_seconds{job=\"evohome-svc\"} > bool 0",
+          "expr": "time() - evohome_last_update < bool 300",
           "interval": "",
           "legendFormat": "{{pod}}",
           "refId": "A"
@@ -167,8 +167,8 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 8,
-        "x": 8,
+        "w": 12,
+        "x": 12,
         "y": 1
       },
       "hiddenSeries": false,
@@ -236,98 +236,6 @@
           "max": null,
           "min": null,
           "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 16,
-        "y": 1
-      },
-      "hiddenSeries": false,
-      "id": 19,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "percentage": false,
-      "pluginVersion": "7.1.0",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "time()-evohome_last_update < 24*60*60",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Last scrape",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
         }
       ],
       "yaxis": {
@@ -431,42 +339,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -497,8 +405,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -537,7 +445,7 @@
         "y": 7
       },
       "hiddenSeries": false,
-      "id": 20,
+      "id": 28,
       "legend": {
         "avg": false,
         "current": false,
@@ -558,7 +466,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -599,42 +507,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -665,8 +573,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -705,7 +613,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 21,
+      "id": 29,
       "legend": {
         "avg": false,
         "current": false,
@@ -726,7 +634,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -767,42 +675,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -833,8 +741,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -873,7 +781,7 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 22,
+      "id": 30,
       "legend": {
         "avg": false,
         "current": false,
@@ -894,7 +802,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -935,42 +843,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -1001,8 +909,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -1041,7 +949,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 23,
+      "id": 31,
       "legend": {
         "avg": false,
         "current": false,
@@ -1062,7 +970,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1103,42 +1011,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -1169,8 +1077,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -1209,7 +1117,7 @@
         "y": 23
       },
       "hiddenSeries": false,
-      "id": 24,
+      "id": 32,
       "legend": {
         "avg": false,
         "current": false,
@@ -1230,7 +1138,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1271,42 +1179,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -1337,8 +1245,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -1377,7 +1285,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 25,
+      "id": 33,
       "legend": {
         "avg": false,
         "current": false,
@@ -1398,7 +1306,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1439,42 +1347,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -1505,8 +1413,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -1545,7 +1453,7 @@
         "y": 31
       },
       "hiddenSeries": false,
-      "id": 26,
+      "id": 34,
       "legend": {
         "avg": false,
         "current": false,
@@ -1566,7 +1474,7 @@
       "renderer": "flot",
       "repeat": null,
       "repeatDirection": "h",
-      "repeatIteration": 1614327168996,
+      "repeatIteration": 1614439177894,
       "repeatPanelId": 4,
       "scopedVars": {
         "zone": {
@@ -1607,42 +1515,42 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"})",
+          "expr": "evohome_temperature_celcius{zone_name=\"$zone\",type=\"measured\"} * on(instance) ((time() - evohome_last_update) < bool 180) > 0",
           "hide": false,
           "interval": "1m",
           "legendFormat": "measured",
           "refId": "A"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"planned\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "planned",
           "refId": "B"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"TemporaryOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "temporary",
           "refId": "C"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} * on(zone_name,instance) \nevohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"}) > 5",
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} and on(instance) ((time() - evohome_last_update) < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"PermanentOverride\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "permanent",
           "refId": "D"
         },
         {
-          "expr": "max(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
-          "hide": false,
+          "expr": "(evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} == 5) * 20",
+          "hide": true,
           "interval": "1m",
           "legendFormat": "off",
           "refId": "F"
         },
         {
-          "expr": "max((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"} != on(zone_name,instance) evohome_temperature_celcius{type=\"planned\"}) * on(zone_name,instance) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"}) > 5",
+          "expr": "((evohome_temperature_celcius{zone_name=\"$zone\",type=\"target\"}  != ignoring(type) evohome_temperature_celcius{type=\"planned\"}) and on(instance) (time() - evohome_last_update < 180)) * on(zone_name) evohome_zone_mode{evohome_zone_mode=\"FollowSchedule\"} > 5",
           "hide": false,
           "interval": "1m",
           "legendFormat": "adaptive",
@@ -1673,8 +1581,8 @@
           "format": "celsius",
           "label": "",
           "logBase": 1,
-          "max": "23",
-          "min": "12",
+          "max": "25",
+          "min": "10",
           "show": true
         },
         {
@@ -1729,7 +1637,7 @@
     ]
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {
@@ -1744,5 +1652,5 @@
   "timezone": "",
   "title": "Evohome",
   "uid": "drvxkrLMk",
-  "version": 8
+  "version": 11
 }
