@@ -157,8 +157,6 @@ def get_evohome_data(client):
 
 
 def set_prom_metrics(metrics, data):
-    metrics["up"].set(1)
-
     system_mode_status = set_prom_metrics_mode_status(metrics, data)
     set_prom_metrics_system_mode(metrics, system_mode_status)
     set_prom_metrics_active_faults(metrics, data)
@@ -269,9 +267,11 @@ def main():
             data = get_evohome_data(client)
             set_prom_metrics(metrics, data)
             set_ready(True)
+            metrics["up"].set(1)
+
         except Exception as e:
             logging.error(f"Error in evohome main loop: {e}")
-            set_ready(False)
+            metrics["up"].set(0)
 
         # do this in a loop so we can stop when necessary
         sleep_until = time.time() + settings.poll_interval

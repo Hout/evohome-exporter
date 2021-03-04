@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-pv
+  labels:
+    app: grafana
+spec:
+  storageClassName: microk8s-hostpath
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: monitoring
+  name: grafana-pv-claim
+  labels:
+    app: grafana
+spec:
+  storageClassName: microk8s-hostpath
+  resources:
+    requests:
+      storage: 1Gi
