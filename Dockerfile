@@ -1,21 +1,21 @@
 # set base image (host OS)
-FROM python:3-slim
+FROM python AS build-image
 
-# install git
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
-    && apt-get purge -y --auto-remove \
-    && rm -rf /var/lib/apt/lists/*
+# copy the requirements file & install
+COPY requirements.txt requirements.txt
+RUN pip install --user -r requirements.txt
+
+# set base image (host OS)
+FROM python:slim AS run-image
 
 # set the run user & set working dir to its home dir
 RUN useradd --create-home pythonuser
 USER pythonuser
 WORKDIR /home/pythonuser
 
-# copy the requirements file, install it & clean up
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && rm requirements.txt
+# copy the python environment from the build image and set the path
+COPY --from=build-image /root/.local /home/pythonuser/.local
+ENV PATH=/home/pythonuser/.local:$PATH
 
 # copy the content of the local src directory to the working directory
 COPY src/*.py ./
