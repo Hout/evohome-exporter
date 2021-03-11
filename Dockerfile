@@ -14,7 +14,7 @@ USER pythonuser
 WORKDIR /home/pythonuser
 
 # copy the python environment from the build image and set the path
-COPY --from=build-image /root/.local /home/pythonuser/.local
+COPY --chown=pythonuser:pythonuser --from=build-image /root/.local /home/pythonuser/.local
 ENV PATH=/home/pythonuser/.local:$PATH
 
 # copy the content of the local src directory to the working directory
